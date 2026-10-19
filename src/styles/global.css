@@ -1,8 +1,6 @@
 @import 'tailwindcss';
 @config '../../tailwind.config.mjs';
 
-/* Mismo sistema visual que ManhwaToNovel: grises fríos, acento índigo y
-   superficies neumórficas. Modo oscuro por clase en <html>. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @view-transition {
@@ -11,15 +9,21 @@
 
 @layer base {
   :root {
-    --superficie: #eef0f4;
-    --sombra-clara: rgba(255, 255, 255, 0.9);
-    --sombra-oscura: rgba(163, 172, 189, 0.45);
+    --superficie: #f5f5f2;
+    --tarjeta: #ffffff;
+    --borde: #e4e4df;
+    --texto: #111111;
+    --texto-suave: #5c5c57;
+    --sombra: none;
   }
   .dark {
     color-scheme: dark;
-    --superficie: #0e1117;
-    --sombra-clara: rgba(255, 255, 255, 0.03);
-    --sombra-oscura: rgba(0, 0, 0, 0.65);
+    --superficie: #070707;
+    --tarjeta: #111111;
+    --borde: #262626;
+    --texto: #f5f5f5;
+    --texto-suave: #9c9c98;
+    --sombra: none;
   }
   html {
     scroll-behavior: smooth;
@@ -29,19 +33,18 @@
   body {
     background: var(--superficie);
     font-family: theme(fontFamily.sans);
-    color: theme(colors.base.700);
+    color: var(--texto);
     -webkit-font-smoothing: antialiased;
-  }
-  .dark body {
-    color: theme(colors.base.300);
+    font-size: 16px;
+    line-height: 1.5;
   }
   ::selection {
-    background: color-mix(in oklab, theme(colors.acento.400) 35%, transparent);
+    background: color-mix(in oklab, theme(colors.acento.500) 35%, transparent);
   }
   :focus-visible {
-    outline: 2px solid theme(colors.acento.500);
+    outline: 2px solid theme(colors.acento.400);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 8px;
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -50,97 +53,93 @@
       scroll-behavior: auto !important;
     }
   }
-  /* Un grid sin columnas declaradas desborda en móvil (ver ManhwaToNovel). */
   :where(.grid) {
     grid-template-columns: minmax(0, 1fr);
   }
   input, select, textarea { min-width: 0; }
 }
 
-/* @utility (no @layer components): así valen con variantes y con @apply. */
 @utility scrollbar-none {
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
 }
+
 @utility neu {
-  background: var(--superficie);
-  border: 1px solid color-mix(in oklab, var(--sombra-oscura) 30%, transparent);
-  box-shadow: theme(boxShadow.neu);
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 1rem;
+  box-shadow: var(--sombra);
 }
 @utility neu-sm {
-  background: var(--superficie);
-  border: 1px solid color-mix(in oklab, var(--sombra-oscura) 25%, transparent);
-  box-shadow: theme(boxShadow.neu-sm);
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  box-shadow: var(--sombra);
 }
 @utility neu-inset {
-  background: var(--superficie);
-  border: 1px solid color-mix(in oklab, var(--sombra-oscura) 20%, transparent);
-  box-shadow: theme(boxShadow.neu-inset);
+  background: color-mix(in oklab, var(--tarjeta) 70%, var(--superficie));
+  border: 1px solid var(--borde);
 }
 @utility neu-press {
-  transition: box-shadow 180ms ease, transform 180ms ease;
-  &:active {
-    box-shadow: theme(boxShadow.neu-inset);
-    transform: translateY(1px);
-  }
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  &:active { transform: scale(0.98); }
 }
+
 @utility btn {
-  @apply neu-sm neu-press rounded-xl px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none;
+  @apply min-h-11 rounded-xl px-4 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer border border-[var(--borde)] bg-[var(--tarjeta)] text-[var(--texto)] hover:border-acento-500/60 transition-colors disabled:opacity-50 disabled:pointer-events-none;
 }
 @utility btn-acento {
-  @apply rounded-xl px-4 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer text-white bg-acento-500 hover:bg-acento-600 transition-colors shadow-neu-sm disabled:opacity-50 disabled:pointer-events-none;
+  @apply min-h-11 rounded-xl px-4 py-2.5 text-sm font-bold inline-flex items-center justify-center gap-2 cursor-pointer text-black bg-acento-500 hover:bg-acento-400 transition-colors disabled:opacity-50 disabled:pointer-events-none;
+}
+@utility btn-primario {
+  @apply min-h-12 rounded-xl px-5 py-3 text-base font-bold uppercase tracking-wide inline-flex items-center justify-center gap-2 cursor-pointer text-black bg-acento-400 hover:bg-acento-300 transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  &:active { transform: scale(0.98); }
+}
+@utility btn-whatsapp {
+  @apply min-h-12 rounded-xl px-5 py-3 text-base font-semibold inline-flex items-center justify-center gap-2 cursor-pointer text-white transition-colors;
+  background: #16a34a;
+  &:hover { background: #15803d; }
 }
 @utility campo {
-  @apply neu-inset rounded-xl px-3 py-2.5 text-sm outline-none w-full;
+  @apply rounded-xl px-3.5 py-2.5 text-base outline-none w-full min-h-11 border border-[var(--borde)] bg-[var(--superficie)] text-[var(--texto)] focus:border-acento-500 transition-colors;
 }
 @utility etiqueta {
-  @apply block text-xs font-medium text-base-500 mb-1;
+  @apply block text-sm font-medium text-[var(--texto-suave)] mb-1;
 }
 @utility titulo {
-  @apply font-semibold tracking-tight text-base-800 dark:text-base-100;
+  @apply font-display tracking-wide text-[var(--texto)] leading-none;
 }
 @utility chip {
-  @apply neu-inset rounded-full px-2.5 py-0.5 text-[11px] font-medium;
+  @apply rounded-md px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-1 bg-acento-500/15 text-acento-400 border border-acento-500/30;
 }
-
-/* Phase 5: Enhanced UX — gradients, textures, trust signals */
-
-.hero-gradient {
-  background: linear-gradient(135deg, #0d0d1a 0%, #1a1035 40%, #0f1a2e 100%);
-}
-.hero-texture {
-  background-image: radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.06) 0%, transparent 40%);
-}
-
 @utility stat-pill {
-  @apply rounded-full px-3 py-1.5 text-sm font-medium inline-flex items-center gap-1.5 backdrop-blur-sm;
+  @apply rounded-lg px-3 py-2 text-sm font-medium inline-flex items-center gap-1.5 border border-[var(--borde)] bg-[var(--tarjeta)] text-[var(--texto)];
 }
-
-@utility barbero-card {
-  background: linear-gradient(145deg, var(--superficie), color-mix(in oklab, var(--superficie) 90%, #1e1b4b));
-  border: 1px solid color-mix(in oklab, var(--sombra-oscura) 30%, transparent);
-  box-shadow: theme(boxShadow.neu);
+@utility panel {
+  @apply rounded-2xl p-4 border border-[var(--borde)] bg-[var(--tarjeta)];
 }
-.dark .barbero-card:hover {
-  border-color: color-mix(in oklab, theme(colors.acento.500) 30%, transparent);
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.08);
+@utility opcion {
+  @apply rounded-2xl p-3.5 min-h-14 flex items-center gap-3 border border-[var(--borde)] bg-[var(--tarjeta)] cursor-pointer transition-colors hover:border-acento-500/50 text-[var(--texto)];
 }
-
-@utility btn-gradient {
-  @apply rounded-xl px-5 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer text-white transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none;
-  background: linear-gradient(135deg, theme(colors.acento.500) 0%, #7c3aed 50%, #c026d3 100%);
-  background-size: 200% 200%;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  &:hover {
-    background-position: 100% 0;
-    box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    transform: translateY(-1px);
-  }
-  &:active {
-    transform: translateY(0);
+@utility opcion-activa {
+  @apply border-acento-500 bg-acento-500/10 ring-1 ring-acento-500;
+}
+@utility paso {
+  @apply flex items-center gap-2.5 text-base font-bold text-[var(--texto)];
+  & > span {
+    @apply size-7 rounded-full grid place-items-center text-sm font-bold bg-acento-500 text-white shrink-0;
   }
 }
+
+.guia-tour.driver-popover {
+  background: var(--tarjeta); color: var(--texto); border: 1px solid var(--borde); border-radius: 16px;
+  font-family: inherit; max-width: 360px;
+}
+.guia-tour .driver-popover-title { font-family: theme(fontFamily.display); font-size: 1.6rem; letter-spacing: 0.02em; color: var(--texto); }
+.guia-tour .driver-popover-description { font-size: 0.95rem; line-height: 1.5; color: var(--texto-suave); }
+.guia-tour .driver-popover-progress-text { color: var(--texto-suave); }
+.guia-tour .driver-popover-next-btn { background: theme(colors.acento.400); color: #000; font-weight: 700; border-radius: 10px; }
+.guia-tour .driver-popover-prev-btn, .guia-tour .driver-popover-close-btn { background: var(--superficie); color: var(--texto); border-radius: 10px; }
+.driver-active-element { box-shadow: 0 0 0 3px theme(colors.acento.400) !important; border-radius: 14px !important; }
 
 .leaflet-container { font: inherit; background: var(--superficie); }
 

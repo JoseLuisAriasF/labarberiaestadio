@@ -1,4 +1,4 @@
-import { admin, emailStaff, json, mismoOrigen, USUARIO, type Env } from '../../server/lib';
+import { admin, emailStaff, enviarCorreo, json, mismoOrigen, USUARIO, type Env } from '../../server/lib';
 
 // Acciones del dueño que tocan cuentas de Auth. Se identifica con su JWT
 // (Authorization: Bearer) y se comprueba en la BD que es dueño de ESA barbería.
@@ -11,7 +11,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
   if (!yo.user) return json({ error: 'Sesión inválida' }, 401);
 
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
-  const { data: b } = await sb.from('barberias').select('id, codigo').eq('id', String(body.barberia_id ?? '')).eq('owner_id', yo.user.id).maybeSingle();
+  const { data: b } = await sb.from('barberias').select('id, codigo, nombre').eq('id', String(body.barberia_id ?? '')).eq('owner_id', yo.user.id).maybeSingle();
   if (!b) return json({ error: 'No eres dueño de esta barbería' }, 403);
 
   const barbero = async () => {
@@ -19,7 +19,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     return data;
   };
   const clave = String(body.clave ?? '');
-  const claveOk = clave.length >= 8 && /\d/.test(clave) && /[a-zA-Z]/.test(clave);
+  const claveOk = clave.length >= 6;
 
   switch (body.accion) {
     case 'crear': {
@@ -27,7 +27,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
       const nombre = String(body.nombre ?? '').trim().slice(0, 60);
       if (!USUARIO.test(usuario)) return json({ error: 'Usuario: 3 a 24 letras minúsculas, números o _' }, 400);
       if (nombre.length < 2) return json({ error: 'Nombre muy corto' }, 400);
-      if (!claveOk) return json({ error: 'Clave temporal: 8+ caracteres con letras y números' }, 400);
+      if (!claveOk) return json({ error: 'Clave temporal: al menos 6 caracteres' }, 400);
       const { data: u, error } = await sb.auth.admin.createUser({
         email: emailStaff(b.codigo, usuario), password: clave, email_confirm: true,
         app_metadata: { rol: 'barbero', barberia_id: b.id },
@@ -39,12 +39,19 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
       const { data: nuevo, error: e2 } = await sb.from('barberos')
         .insert({ usuario_id: u.user.id, barberia_id: b.id, usuario, nombre, debe_cambiar_clave: true, email_real, telefono_real, whatsapp }).select('*').single();
       if (e2) { await sb.auth.admin.deleteUser(u.user.id); return json({ error: 'No se pudo registrar el barbero' }, 400); }
-      return json({ barbero: nuevo });
+      const correo = email_real ? await enviarCorreo(env, {
+        to: email_real,
+        subject: `Tus accesos a ${b.nombre}`,
+        html: `<p>Hola ${nombre}, ya tienes acceso al panel de <b>${b.nombre}</b>.</p>
+          <p><b>Código de barbería:</b> ${b.codigo}<br><b>Usuario:</b> ${usuario}<br><b>Clave temporal:</b> ${clave}</p>
+          <p>Al entrar te pedirá crear tu clave personal. Entra en <a href="https://labarberiaestadio.pages.dev/login">labarberiaestadio.pages.dev/login</a>.</p>`,
+      }) : false;
+      return json({ barbero: nuevo, correo });
     }
     case 'clave': {
       const br = await barbero();
       if (!br?.usuario_id) return json({ error: 'Barbero no encontrado' }, 404);
-      if (!claveOk) return json({ error: 'Clave temporal: 8+ caracteres con letras y números' }, 400);
+      if (!claveOk) return json({ error: 'Clave temporal: al menos 6 caracteres' }, 400);
       await sb.auth.admin.updateUserById(br.usuario_id, { password: clave });
       await sb.from('barberos').update({ debe_cambiar_clave: true }).eq('id', br.id);
       return json({ ok: true });

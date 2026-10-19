@@ -9,7 +9,7 @@ export interface DatosBarberia {
 
 /** Carga una barbería por código o id y mantiene vivos los estados de sus
     barberos vía Supabase Realtime (postgres_changes sobre `barberos`). */
-export function useBarberia(clave: { codigo?: string; id?: string }) {
+export function useBarberia(clave: { codigo?: string; id?: string; slug?: string | null }) {
   const [datos, setDatos] = useState<DatosBarberia | null>(null);
   const [error, setError] = useState('');
   const [enVivo, setEnVivo] = useState(false);
@@ -18,10 +18,11 @@ export function useBarberia(clave: { codigo?: string; id?: string }) {
   useEffect(() => {
     let canal: ReturnType<typeof supabase.channel> | null = null;
     let vivo = true;
-    if (!clave.codigo && !clave.id) return;
+    if (!clave.codigo && !clave.id && !clave.slug) return;
     (async () => {
       const q = supabase.from('barberias').select('*');
-      const { data: barberia, error: e } = await (clave.id ? q.eq('id', clave.id) : q.eq('codigo', clave.codigo!)).maybeSingle();
+      const filtro = clave.id ? q.eq('id', clave.id) : clave.slug ? q.eq('slug', clave.slug) : q.eq('codigo', clave.codigo!);
+      const { data: barberia, error: e } = await filtro.maybeSingle();
       if (!vivo) return;
       if (e || !barberia) { setError(e?.message || 'No encontramos esta barbería.'); return; }
       const id = barberia.id;
@@ -56,7 +57,7 @@ export function useBarberia(clave: { codigo?: string; id?: string }) {
     const alVolver = () => document.visibilityState === 'visible' && setVersion((v) => v + 1);
     document.addEventListener('visibilitychange', alVolver);
     return () => { vivo = false; canal && supabase.removeChannel(canal); document.removeEventListener('visibilitychange', alVolver); };
-  }, [clave.codigo, clave.id, version]);
+  }, [clave.codigo, clave.id, clave.slug, version]);
 
   return { datos, setDatos, error, enVivo, recargar: () => setVersion((v) => v + 1) };
 }

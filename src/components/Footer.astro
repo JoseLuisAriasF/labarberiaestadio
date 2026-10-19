@@ -8,7 +8,7 @@ const anio = new Date().getFullYear();
 <footer class="border-t border-base-300/40 dark:border-base-700/40 mt-12">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-sm text-base-500 grid gap-6 sm:grid-cols-3">
     <div>
-      <p class="titulo">💈 {b.nombre}</p>
+      <p class="flex items-center gap-2 titulo text-lg"><img src="/logo-barberia.jpg" alt="" class="size-8 rounded-md object-cover" width="32" height="32" /> {b.nombre}</p>
       {b.direccion && <p class="mt-1">{b.direccion}{b.distrito && `, ${b.distrito}`}</p>}
       {b.telefono && <p class="mt-1"><a class="hover:text-acento-500" href={`tel:${b.telefono}`}>{b.telefono}</a></p>}
     </div>

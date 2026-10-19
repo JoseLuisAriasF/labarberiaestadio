@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { msg, subirImagen, supabase } from '@/lib/supabase';
-import { Aviso, Hoja } from '../ui';
+import { Aviso, CampoImagen, Hoja } from '../ui';
 
 export interface Campo {
   k: string; t: string;
@@ -83,10 +83,7 @@ export default function Crud<T extends { id: string }>({ tabla, barberiaId, camp
                   <span className="etiqueta">{c.t}</span>
                   {c.tipo === 'textarea' ? <textarea name={c.k} defaultValue={(v(c.k) as string) ?? ''} rows={3} className="campo" maxLength={600} />
                     : c.tipo === 'imagen' ? (
-                      <span className="flex items-center gap-3">
-                        {v(c.k) ? <img src={v(c.k) as string} alt="" className="size-14 rounded-lg object-cover" /> : null}
-                        <input type="file" name={c.k} accept="image/jpeg,image/png,image/webp" className="text-sm" />
-                      </span>)
+                      <CampoImagen name={c.k} texto="Subir imagen" actual={(v(c.k) as string) || null} />)
                     : c.tipo === 'select' ? (
                       <select name={c.k} defaultValue={(v(c.k) as string) ?? c.opciones?.[0]?.v} className="campo">
                         {c.opciones!.map((o) => <option key={o.v} value={o.v}>{o.t}</option>)}

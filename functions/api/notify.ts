@@ -1,22 +1,27 @@
-import { admin, json, mismoOrigen, type Env } from '../../server/lib';
+import { admin, enviarCorreo, json, mismoOrigen, type Env } from '../../server/lib';
 
-type Tipo = 'cita_confirmada' | 'cita_nueva' | 'pago_recibido';
+type Tipo = 'cita_confirmada' | 'cita_nueva' | 'pago_recibido' | 'cita_cancelada' | 'cita_reprogramada';
 
 const ASUNTOS: Record<Tipo, string> = {
   cita_confirmada: '✅ Cita confirmada',
   cita_nueva: '📅 Nueva cita reservada',
   pago_recibido: '💰 Comprobante de pago recibido',
+  cita_cancelada: '❌ Cita cancelada por el cliente',
+  cita_reprogramada: '🔁 Cita reprogramada por el cliente',
 };
 
 const PUSH_ICONOS: Record<Tipo, string> = {
   cita_confirmada: '✅',
   cita_nueva: '📅',
   pago_recibido: '💰',
+  cita_cancelada: '❌',
+  cita_reprogramada: '🔁',
 };
+
+const AVISA_AL_BARBERO: Tipo[] = ['cita_nueva', 'pago_recibido', 'cita_cancelada', 'cita_reprogramada'];
 
 export const onRequestPost = async ({ request, env }: { request: Request; env: Env }) => {
   if (!mismoOrigen(request)) return json({ error: 'Origen no permitido' }, 403);
-  if (!env.RESEND_API_KEY) return json({ ok: true, skip: 'RESEND_API_KEY no configurada' });
 
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const tipo = body.tipo as Tipo;
@@ -31,6 +36,18 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     .eq('id', citaId)
     .maybeSingle();
   if (!cita) return json({ error: 'Cita no encontrada' }, 404);
+
+  // Solo quien tiene relación con la cita puede disparar avisos: su cliente, su barbero o el dueño.
+  const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+  if (!token) return json({ error: 'Sin sesión' }, 401);
+  const { data: yo } = await sb.auth.getUser(token);
+  if (!yo.user) return json({ error: 'Sesión inválida' }, 401);
+  const [{ data: esCliente }, { data: esBarbero }, { data: esDueno }] = await Promise.all([
+    sb.from('clientes').select('id').eq('usuario_id', yo.user.id).eq('id', cita.cliente_id).maybeSingle(),
+    sb.from('barberos').select('id').eq('usuario_id', yo.user.id).eq('id', cita.barbero_id).maybeSingle(),
+    sb.from('barberias').select('id').eq('owner_id', yo.user.id).eq('id', cita.barberia_id).maybeSingle(),
+  ]);
+  if (!esCliente && !esBarbero && !esDueno) return json({ error: 'No autorizado' }, 403);
 
   const servicio = (cita as any).servicios_cortes?.nombre ?? 'Servicio';
   const barberoNombre = (cita as any).barberos?.nombre ?? 'Barbero';
@@ -57,9 +74,23 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     });
   }
 
-  if ((tipo === 'cita_nueva' || tipo === 'pago_recibido') && barberoEmail) {
-    const msg = tipo === 'pago_recibido'
-      ? `<b>${clienteNombre}</b> subió un comprobante de pago. Revísalo en tu panel.`
+  if ((tipo === 'cita_nueva' || tipo === 'pago_recibido') && clienteEmail) {
+    emails.push({
+      to: clienteEmail,
+      subject: '📩 Reserva registrada',
+      html: plantilla(`
+        <h2>Reserva registrada</h2>
+        <p>Hola <b>${clienteNombre}</b>, registramos tu reserva con <b>${barberoNombre}</b>:</p>
+        <table><tr><td>📋</td><td>${servicio}</td></tr><tr><td>📅</td><td>${fechaLocal}</td></tr><tr><td>💰</td><td>${monto}</td></tr></table>
+        <p>Te avisaremos por correo cuando esté confirmada.</p>
+      `),
+    });
+  }
+
+  if (AVISA_AL_BARBERO.includes(tipo) && barberoEmail) {
+    const msg = tipo === 'pago_recibido' ? `<b>${clienteNombre}</b> subió un comprobante de pago. Revísalo en tu panel.`
+      : tipo === 'cita_cancelada' ? `<b>${clienteNombre}</b> canceló esta cita. El horario queda libre.`
+      : tipo === 'cita_reprogramada' ? `<b>${clienteNombre}</b> cambió la hora de esta cita. Revisa la nueva fecha en tu panel.`
       : `<b>${clienteNombre}</b> reservó una cita contigo.`;
     emails.push({
       to: barberoEmail,
@@ -78,11 +109,11 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     const userId = (cita as any).cliente_id;
     if (userId) pushTargets.push({ userId, title: '✅ Cita confirmada', body: `${servicio} con ${barberoNombre} · ${fechaLocal}`, url: '/perfil' });
   }
-  if (tipo === 'cita_nueva' || tipo === 'pago_recibido') {
+  if (AVISA_AL_BARBERO.includes(tipo)) {
     const { data: barberoRow } = await sb.from('barberos').select('usuario_id').eq('id', cita.barbero_id).maybeSingle();
     if (barberoRow?.usuario_id) pushTargets.push({
       userId: barberoRow.usuario_id,
-      title: `${PUSH_ICONOS[tipo]} ${tipo === 'pago_recibido' ? 'Comprobante recibido' : 'Nueva cita'}`,
+      title: `${PUSH_ICONOS[tipo]} ${ASUNTOS[tipo].replace(/^\S+\s/, '')}`,
       body: `${clienteNombre} · ${servicio} · ${fechaLocal}`,
       url: '/barber#agenda',
     });
@@ -92,17 +123,9 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     ? await enviarPush(sb, env, pushTargets)
     : [];
 
-  const emailResults = await Promise.allSettled(
-    emails.map((e) =>
-      fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
-        body: JSON.stringify({ from: 'El Estadio Barbería <noreply@labarberiaestadio.pages.dev>', ...e }),
-      }),
-    ),
-  );
+  const emailResults = await Promise.allSettled(emails.map((e) => enviarCorreo(env, e)));
 
-  return json({ ok: true, emails: emailResults.filter((r) => r.status === 'fulfilled').length, push: pushResults.length });
+  return json({ ok: true, emails: emailResults.filter((r) => r.status === 'fulfilled' && r.value).length, push: pushResults.length });
 };
 
 async function enviarPush(
@@ -126,8 +149,10 @@ async function enviarPush(
         await sb.from('push_subscriptions').delete().eq('id', sub.id);
       } else if (res.ok) {
         sent.push(sub.id);
+      } else {
+        console.error('push rechazado', res.status, await res.text());
       }
-    } catch {}
+    } catch (err) { console.error('push', String(err)); }
   }
   return sent;
 }
@@ -147,7 +172,7 @@ async function webpush(endpoint: string, p256dh: string, authKey: string, payloa
   const privKeyRaw = b64urlDecode(vapidPriv);
   const vapidKey = await crypto.subtle.importKey('pkcs8', buildPkcs8(privKeyRaw), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
   const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, vapidKey, new TextEncoder().encode(unsignedToken));
-  const jwt = `${unsignedToken}.${b64url(derToRaw(new Uint8Array(sig)))}`;
+  const jwt = `${unsignedToken}.${b64url(sig)}`;
   const vapidPubBytes = b64urlDecode(vapidPub);
 
   // Encrypt payload (RFC 8291)
@@ -216,20 +241,6 @@ function buildPkcs8(rawPriv: Uint8Array) {
     0x01, 0x04, 0x20,
   ]);
   return concatBytes(prefix, rawPriv);
-}
-
-// DER-encoded ECDSA signature to raw 64-byte r||s
-function derToRaw(der: Uint8Array) {
-  const raw = new Uint8Array(64);
-  let offset = 3;
-  const rLen = der[offset++];
-  const rStart = rLen > 32 ? offset + 1 : offset;
-  raw.set(der.slice(rStart, rStart + 32), 0);
-  offset += rLen + 1;
-  const sLen = der[offset++];
-  const sStart = sLen > 32 ? offset + 1 : offset;
-  raw.set(der.slice(sStart, sStart + 32), 32);
-  return raw;
 }
 
 function plantilla(cuerpo: string) {

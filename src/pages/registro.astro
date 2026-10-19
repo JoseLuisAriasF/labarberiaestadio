@@ -22,7 +22,9 @@ const SITE_KEY = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
         <label><span class="etiqueta">Tu correo (contacto y avisos)</span><input name="email" type="email" required autocomplete="email" class="campo" /></label>
         <label><span class="etiqueta">Teléfono</span><input name="telefono" type="tel" autocomplete="tel" class="campo" /></label>
         <label><span class="etiqueta">Usuario master</span><input name="usuario" required pattern="[a-z0-9_]{3,24}" autocapitalize="none" autocomplete="username" placeholder="ej. dueno" class="campo" /></label>
-        <label><span class="etiqueta">Clave (10+ caracteres, letras y números)</span><input name="clave" type="password" required minlength="10" autocomplete="new-password" class="campo" /></label>
+        <label><span class="etiqueta">Clave (mínimo 6 caracteres)</span>
+          <span class="relative block"><input name="clave" type="password" required minlength="6" autocomplete="new-password" class="campo pr-20" />
+          <button type="button" data-ojo aria-label="Mostrar clave" class="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-9 rounded-lg px-2.5 text-xs font-semibold text-[var(--texto-suave)] hover:text-[var(--texto)]">Mostrar</button></span></label>
         {SITE_KEY && <div class="cf-turnstile" data-sitekey={SITE_KEY} data-theme="auto"></div>}
         <p id="err" role="alert" class="text-sm text-red-500 min-h-5"></p>
         <button class="btn-acento">Crear mi barbería</button>
@@ -43,6 +45,13 @@ const SITE_KEY = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
   import { emailStaff, supabase } from '@/lib/supabase';
   const f = document.getElementById('f') as HTMLFormElement;
   const err = document.getElementById('err')!;
+  document.querySelectorAll<HTMLButtonElement>('[data-ojo]').forEach((b) => b.addEventListener('click', () => {
+    const i = b.previousElementSibling as HTMLInputElement;
+    const ver = i.type === 'password';
+    i.type = ver ? 'text' : 'password';
+    b.textContent = ver ? 'Ocultar' : 'Mostrar';
+    b.setAttribute('aria-label', ver ? 'Ocultar clave' : 'Mostrar clave');
+  }));
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(f)) as Record<string, string>;

@@ -1,7 +1,7 @@
 ---
 import ThemeToggle from './ThemeToggle.astro';
-interface Props { privado?: boolean; nombre: string }
-const { privado = false, nombre } = Astro.props;
+interface Props { privado?: boolean; nombre: string; logo?: string }
+const { privado = false, nombre, logo = '/logo-barberia.jpg' } = Astro.props;
 const ruta = Astro.url.pathname.replace(/\/$/, '') || '/';
 const enlaces = [
   { href: '/', texto: 'Cita en vivo', emoji: '🏠', icono: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
@@ -13,7 +13,7 @@ const enlaces = [
 <header class="sticky top-0 z-40 backdrop-blur-md bg-[var(--superficie)]/80 border-b border-base-300/40 dark:border-base-700/40">
   <div class="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center gap-2">
     <a href="/" data-tenant class="flex items-center gap-2 shrink-0 titulo">
-      <span class="neu-sm grid place-items-center size-9 rounded-xl text-lg" aria-hidden="true">💈</span>
+      <img src={logo} alt="" class="size-10 rounded-lg object-contain bg-black" width="40" height="40" />
       <span class="hidden sm:inline">{nombre}</span>
     </a>
 
@@ -31,7 +31,7 @@ const enlaces = [
     <div class="ml-auto flex items-center gap-2">
       <div class="hidden sm:block"><ThemeToggle /></div>
       {!privado && (
-        <a href="/perfil" data-tenant class="btn !px-3" aria-label="Mi perfil">
+        <a href="/perfil" data-tenant data-guia="perfil" class="btn !px-3" aria-label="Mi perfil">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="size-4"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
           <span class="hidden sm:inline">Mi perfil</span>
         </a>

@@ -79,7 +79,7 @@ export default function Equipo({ datos, recargar }: { datos: DatosBarberia; reca
             <label className="relative cursor-pointer shrink-0" title="Cambiar foto">
               {b.avatar_url ? <img src={b.avatar_url} alt="" className="size-12 rounded-full object-cover" />
                 : <span className="size-12 rounded-full grid place-items-center bg-acento-500 text-white font-bold">{b.nombre.slice(0, 2).toUpperCase()}</span>}
-              <Upload className="size-4 absolute -bottom-1 -right-1 neu-sm rounded-full p-0.5" />
+              <span className="absolute -bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-acento-500 px-2 py-0.5 text-[10px] font-bold text-black"><Upload className="size-3" />Foto</span>
               <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => avatar(b, e.target.files?.[0])} />
             </label>
             <span className="flex-1 min-w-40">
@@ -106,7 +106,7 @@ export default function Equipo({ datos, recargar }: { datos: DatosBarberia; reca
         <form onSubmit={crear} className="grid gap-3">
           <label><span className="etiqueta">Nombre visible</span><input name="nombre" required minLength={2} maxLength={60} className="campo" /></label>
           <label><span className="etiqueta">Usuario (para el login)</span><input name="usuario" required pattern="[a-z0-9_]{3,24}" autoCapitalize="none" className="campo" placeholder="ej. carlos" /></label>
-          <label><span className="etiqueta">Clave temporal</span><input name="clave" required minLength={8} defaultValue={claveAleatoria()} className="campo font-mono" /></label>
+          <label><span className="etiqueta">Clave temporal</span><input name="clave" required minLength={6} defaultValue={claveAleatoria()} className="campo font-mono" /></label>
           <label><span className="etiqueta">Email (para notificaciones)</span><input name="email_real" type="email" className="campo" placeholder="barbero@gmail.com" /></label>
           <label><span className="etiqueta">Teléfono</span><input name="telefono_real" type="tel" className="campo" placeholder="987654321" /></label>
           <label><span className="etiqueta">WhatsApp (para citas)</span><input name="whatsapp" type="tel" className="campo" placeholder="51987654321" /></label>

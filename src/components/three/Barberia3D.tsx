@@ -339,7 +339,7 @@ export default function Barberia3D({ sillas, barberos, seleccionId, onSelect, te
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => mo.disconnect();
   }, []);
-  const porId = useMemo(() => new Map(barberos.map((b) => [b.id, b])), [barberos]);
+  const porId = useMemo(() => new Map(barberos.filter((b) => b.presente).map((b) => [b.id, b])), [barberos]);
   const etiquetas = useRef(new Map<string, HTMLElement>());
 
   return (

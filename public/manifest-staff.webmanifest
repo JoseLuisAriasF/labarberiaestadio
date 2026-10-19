@@ -3,7 +3,7 @@
   "short_name": "Staff",
   "description": "Panel de barberos: jornada, citas y perfil.",
   "lang": "es-PE",
-  "start_url": "/barber?pwa=1",
+  "start_url": "/login?pwa=1",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0e1117",

@@ -1,21 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, Clock, MessageCircle, Upload } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, Clock, MessageCircle, Upload } from 'lucide-react';
 import { msg, notificar, subirImagen, supabase } from '@/lib/supabase';
 import { bloquesDelDia, hoyLima, isoDow, sumarDias, type Bloque } from '@/lib/agenda';
 import { entrarConGoogle, useSesion } from '@/lib/useSesion';
-import type { Barbero } from '@/lib/tipos';
+import type { Barbero, Cliente } from '@/lib/tipos';
 import { DIAS, soles } from '@/lib/tipos';
 import type { DatosBarberia } from '@/lib/useBarberia';
-import { Aviso, BotonGoogle, Cargando, Insignia, RegistroDni } from './ui';
+import { Aviso, BotonGoogle, Cargando, Esqueleto, Insignia, RegistroDni } from './ui';
 
 const BORRADOR = 'be:reserva';
 interface Voucher { id: string; codigo: string; tipo_premio: string; valor_descuento: number; barbero_id: string | null }
+type Modo = 'ADELANTO' | 'CONOCIDO';
+type Resultado = 'CONFIRMADA' | 'CON_COMPROBANTE' | 'SIN_ADELANTO';
 
 export function guardarBorrador(d: { barberoId: string; servicioId?: string; fecha?: string; hora?: string }) {
   sessionStorage.setItem(BORRADOR, JSON.stringify(d));
 }
 export function leerBorrador(): { barberoId: string; servicioId?: string; fecha?: string; hora?: string } | null {
   try { return JSON.parse(sessionStorage.getItem(BORRADOR) || 'null'); } catch { return null; }
+}
+
+function mensajeWhatsApp(p: { barbero: Barbero; cliente: Cliente; servicio: string; precio: number; fecha: string; hora: string; resultado: Resultado }) {
+  const cuando = `el ${DIAS[isoDow(p.fecha)]} ${p.fecha.slice(8)} a las ${p.hora}`;
+  const cierre = p.resultado === 'CONFIRMADA' ? '¡Nos vemos!'
+    : p.resultado === 'CON_COMPROBANTE' ? 'Te envío mi comprobante de Yape/Plin para confirmar. ¡Gracias!'
+    : '¿Me confirmas la cita, por favor? Soy cliente de la barbería. ¡Gracias!';
+  return `Hola ${p.barbero.nombre}, soy ${p.cliente.nombre} (DNI ${p.cliente.dni}). Reservé *${p.servicio}* (${soles(p.precio)}) ${cuando}. ${cierre}`;
 }
 
 export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarberia; barbero: Barbero; onListo: () => void }) {
@@ -33,15 +43,15 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   const [bloques, setBloques] = useState<Bloque[] | null>(null);
   const [hora, setHora] = useState<string | undefined>(borrador?.hora);
 
+  const [modo, setModo] = useState<Modo>('ADELANTO');
   const [metodo, setMetodo] = useState<'YAPE' | 'PLIN'>('YAPE');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [voucherId, setVoucherId] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [hecho, setHecho] = useState<{ estado: string } | null>(null);
+  const [hecho, setHecho] = useState<{ resultado: Resultado; precio: number } | null>(null);
 
-  // Horas: horario del barbero − citas vivas (RPC sin datos personales).
   useEffect(() => {
     if (!servicio) return;
     setBloques(null);
@@ -60,24 +70,27 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   }, [cliente?.id]);
 
   if (servicios.length === 0) return <Aviso tipo="info">Este barbero aún no tiene servicios publicados.</Aviso>;
-  if (hecho) return <Listo estado={hecho.estado} barbero={barbero} servicio={servicio!.nombre} fecha={fecha} hora={hora!} onListo={onListo} duracion={servicio!.duracion_min} />;
+  if (hecho) return (
+    <Listo barbero={barbero} cliente={cliente} servicio={servicio!.nombre} precio={hecho.precio} fecha={fecha} hora={hora!}
+      duracion={servicio!.duracion_min} resultado={hecho.resultado} onListo={onListo} />
+  );
 
   const verificado = cliente?.estado_verificacion === 'VERIFIED_100';
   const voucher = vouchers.find((v) => v.id === voucherId);
   const precio = servicio ? servicio.precio_base * (1 - (voucher?.valor_descuento ?? 0) / 100) : 0;
-  // A quién se le paga depende del modelo financiero del local.
   const pago = barberia.modo_financiero === 'CENTRALIZADO'
     ? { a: barberia.titular_pago || barberia.nombre, yape: barberia.yape_numero, plin: barberia.plin_numero, qr: barberia.qr_pago_url }
     : { a: barbero.nombre, yape: barbero.yape_numero, plin: barbero.plin_numero, qr: null };
   const cerradoHoy = !barbero.horario_atencion[String(isoDow(fecha))];
+  const sinAdelanto = !verificado && modo === 'CONOCIDO';
 
   async function confirmar() {
     if (!servicio || !hora || !user || !cliente) return;
     setEnviando(true); setError('');
     try {
       let ruta: string | null = null;
-      if (archivo) ruta = (await subirImagen('comprobantes', `${barberia.id}/${user.id}`, archivo)).ruta;
-      if (!verificado && !ruta) throw new Error('Adjunta la captura de tu Yape/Plin');
+      if (archivo && !sinAdelanto) ruta = (await subirImagen('comprobantes', `${barberia.id}/${user.id}`, archivo)).ruta;
+      if (!verificado && !sinAdelanto && !ruta) throw new Error('Adjunta la captura de tu Yape/Plin o elige “Ya me conoce el barbero”');
       const inicio = new Date(`${fecha}T${hora}:00-05:00`).toISOString();
       const { data: citaId, error } = await supabase.rpc('reservar_cita', {
         p_barbero: barbero.id, p_servicio: servicio.id, p_inicio: inicio,
@@ -85,55 +98,58 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
       });
       if (error) throw error;
       sessionStorage.removeItem(BORRADOR);
-      const estado = verificado && !ruta ? 'CONFIRMADA' : 'PENDIENTE_PAGO';
-      if (citaId) notificar(estado === 'CONFIRMADA' ? 'cita_nueva' : 'pago_recibido', citaId);
-      setHecho({ estado });
+      const resultado: Resultado = verificado && !ruta ? 'CONFIRMADA' : ruta ? 'CON_COMPROBANTE' : 'SIN_ADELANTO';
+      if (citaId && resultado !== 'SIN_ADELANTO') notificar(resultado === 'CONFIRMADA' ? 'cita_nueva' : 'pago_recibido', citaId);
+      setHecho({ resultado, precio });
     } catch (e) { setError(msg(e)); } finally { setEnviando(false); }
   }
 
   return (
-    <div className="grid gap-5">
-      <section>
-        <h3 className="etiqueta">1 · Servicio</h3>
+    <div className="grid gap-6">
+      <section className="grid gap-3">
+        <h3 className="paso"><span>1</span> Elige tu corte</h3>
         <div className="grid gap-2">
           {servicios.map((s) => {
             const best = datos.barberoServicios.some((x) => x.barbero_id === barbero.id && x.servicio_id === s.id && x.es_bestseller);
+            const activo = s.id === servicioId;
             return (
-              <button key={s.id} onClick={() => { setServicioId(s.id); setHora(undefined); }} aria-pressed={s.id === servicioId}
-                className="neu-sm neu-press rounded-xl px-3 py-2.5 text-left flex items-center gap-3 aria-pressed:neu-inset aria-pressed:bg-acento-500/10 aria-pressed:ring-2 aria-pressed:ring-acento-500/60">
-                <span className="flex-1">
-                  <span className="block text-sm font-medium">{s.nombre} {best && <span className="chip text-amber-500 ml-1">⭐ Best seller</span>}</span>
-                  <span className="text-xs text-base-500"><Clock className="inline size-3" /> {s.duracion_min} min</span>
+              <button key={s.id} onClick={() => { setServicioId(s.id); setHora(undefined); }} aria-pressed={activo}
+                className={`opcion ${activo ? 'opcion-activa' : ''}`}>
+                <span className="flex-1 text-left min-w-0">
+                  <span className="block font-semibold">{s.nombre} {best && <span className="chip text-amber-400 ml-1">⭐ Más pedido</span>}</span>
+                  <span className="text-xs text-base-500 flex items-center gap-1 mt-0.5"><Clock className="size-3" /> {s.duracion_min} min</span>
                 </span>
-                <b className="text-sm">{soles(s.precio_base)}</b>
+                <b className="text-base tabular-nums">{soles(s.precio_base)}</b>
               </button>
             );
           })}
         </div>
       </section>
 
-      <section>
-        <h3 className="etiqueta">2 · Día y hora</h3>
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x scrollbar-none">
+      <section className="grid gap-3">
+        <h3 className="paso"><span>2</span> Elige día y hora</h3>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x scrollbar-none">
           {dias.map((d) => {
             const cerrado = !barbero.horario_atencion[String(isoDow(d))];
+            const activo = d === fecha;
             return (
-              <button key={d} onClick={() => { setFecha(d); setHora(undefined); }} aria-pressed={d === fecha} disabled={cerrado}
-                className="snap-start shrink-0 w-16 neu-sm neu-press rounded-xl py-2 text-center aria-pressed:neu-inset aria-pressed:text-acento-500 disabled:opacity-35">
-                <span className="block text-[10px] uppercase">{d === dias[0] ? 'Hoy' : DIAS[isoDow(d)].slice(0, 3)}</span>
-                <span className="block text-lg font-semibold">{d.slice(8)}</span>
+              <button key={d} onClick={() => { setFecha(d); setHora(undefined); }} aria-pressed={activo} disabled={cerrado}
+                className={`snap-start shrink-0 w-[4.25rem] rounded-xl py-2.5 text-center border transition-colors disabled:opacity-35 ${activo ? 'bg-acento-500 border-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
+                <span className="block text-[11px] uppercase opacity-80">{d === dias[0] ? 'Hoy' : DIAS[isoDow(d)].slice(0, 3)}</span>
+                <span className="block text-lg font-bold">{d.slice(8)}</span>
               </button>
             );
           })}
         </div>
-        {cerradoHoy ? <Aviso tipo="info">😴 {barbero.nombre} no atiende este día. Prueba otro.</Aviso>
-          : !bloques ? <Cargando texto="Buscando horas libres…" />
-          : bloques.every((b) => !b.libre) ? <Aviso tipo="info">Este día ya está lleno 🙌. Mira mañana o ponte en la cola en el local.</Aviso>
+        {cerradoHoy ? <Aviso tipo="info">{barbero.nombre} no atiende este día. Elige otro.</Aviso>
+          : !bloques ? <div className="grid grid-cols-4 gap-2 sm:grid-cols-6" aria-busy="true" aria-label="Buscando horas libres">{Array.from({ length: 12 }, (_, i) => <Esqueleto key={i} className="h-11" />)}</div>
+          : bloques.every((b) => !b.libre) ? <Aviso tipo="info">Este día ya está lleno. Prueba mañana.</Aviso>
           : (
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
               {bloques.map((b) => (
                 <button key={b.hora} disabled={!b.libre} onClick={() => setHora(b.hora)} aria-pressed={b.hora === hora}
-                  title={b.motivo} className="neu-sm neu-press rounded-lg py-2 text-sm tabular-nums aria-pressed:bg-acento-500 aria-pressed:text-white disabled:opacity-30 disabled:line-through">
+                  title={b.motivo}
+                  className={`min-h-11 rounded-xl text-sm font-bold tabular-nums border transition-colors disabled:opacity-30 disabled:line-through ${b.hora === hora ? 'bg-acento-500 border-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)] hover:border-acento-500/60'}`}>
                   {b.hora}
                 </button>
               ))}
@@ -143,10 +159,10 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
 
       {hora && servicio && (
         <section className="grid gap-3">
-          <h3 className="etiqueta">3 · Tus datos</h3>
+          <h3 className="paso"><span>3</span> Confirma tus datos</h3>
           {cargando ? <Cargando /> : !user ? (
             <>
-              <p className="text-sm text-base-500">Inicia sesión para guardar tu cita y sumar cortes a tu tarjeta de lealtad.</p>
+              <p className="text-sm text-base-400">Inicia sesión para guardar tu cita y sumar cortes a tu tarjeta de lealtad.</p>
               <BotonGoogle onClick={() => { guardarBorrador({ barberoId: barbero.id, servicioId, fecha, hora }); entrarConGoogle(); }} />
             </>
           ) : !cliente ? (
@@ -168,42 +184,57 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
               )}
 
               {!verificado && (
-                <div className="neu-inset rounded-2xl p-4 grid gap-3">
+                <div role="radiogroup" aria-label="Cómo reservar" className="grid gap-2">
+                  {([
+                    { v: 'ADELANTO', t: 'Pago adelantado', d: `Confirmación inmediata al validar tu Yape o Plin (${soles(precio)}).` },
+                    { v: 'CONOCIDO', t: 'Ya me conoce el barbero', d: `Sin pago. ${barbero.nombre} confirma tu cita por WhatsApp.` },
+                  ] as const).map((o) => (
+                    <button key={o.v} role="radio" aria-checked={modo === o.v} onClick={() => setModo(o.v)} className={`opcion ${modo === o.v ? 'opcion-activa' : ''}`}>
+                      <span className="flex-1 text-left">
+                        <span className="block font-semibold text-sm">{o.t}</span>
+                        <span className="block text-xs text-base-500 mt-0.5">{o.d}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {!verificado && modo === 'ADELANTO' && (
+                <div className="panel grid gap-3">
                   <p className="text-sm">
-                    🔒 Como es tu primera vez, confirmamos tu cita con el <b>pago adelantado de {soles(precio)}</b>.
-                    Tras validarlo quedas <b>100% verificado</b> y las próximas reservas se confirman al instante.
+                    Envía <b className="tabular-nums">{soles(precio)}</b> a <b>{pago.a}</b>
                   </p>
                   <div className="flex gap-2">
                     {(['YAPE', 'PLIN'] as const).map((m) => (
                       <button key={m} onClick={() => setMetodo(m)} aria-pressed={metodo === m}
-                        className="flex-1 btn aria-pressed:neu-inset aria-pressed:text-acento-500">{m === 'YAPE' ? '💜 Yape' : '💙 Plin'}</button>
+                        className={`flex-1 min-h-11 rounded-xl text-sm font-semibold border ${metodo === m ? 'bg-acento-500 border-acento-500 text-white' : 'border-base-700/60'}`}>
+                        {m === 'YAPE' ? 'Yape' : 'Plin'}
+                      </button>
                     ))}
                   </div>
-                  <p className="text-sm">
-                    Envía a <b>{pago.a}</b>: <b className="tabular-nums select-all">{(metodo === 'YAPE' ? pago.yape : pago.plin) || 'número no configurado — consulta en el local'}</b>
+                  <p className="rounded-xl bg-base-900/60 px-3 py-2.5 text-center text-lg font-bold tabular-nums select-all">
+                    {(metodo === 'YAPE' ? pago.yape : pago.plin) || 'Número no configurado: consulta en el local'}
                   </p>
-                  {pago.qr && <img src={pago.qr} alt={`QR de pago de ${pago.a}`} className="w-40 rounded-xl mx-auto" loading="lazy" />}
-                  <label className="btn cursor-pointer">
+                  {pago.qr && <img src={pago.qr} alt={`QR de pago de ${pago.a}`} className="w-44 rounded-xl mx-auto" loading="lazy" />}
+                  <label className="btn cursor-pointer w-full">
                     <Upload className="size-4" /> {archivo ? archivo.name : 'Subir captura del pago'}
                     <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />
                   </label>
                 </div>
               )}
 
-              <div className="flex items-center justify-between text-sm">
-                <span>{servicio.nombre} · {DIAS[isoDow(fecha)]} {fecha.slice(8)} · {hora}</span>
-                <b className="text-base">{soles(precio)}</b>
+              <div className="panel flex items-center justify-between text-sm gap-3">
+                <span className="min-w-0">
+                  <span className="block font-semibold">{servicio.nombre}</span>
+                  <span className="block text-xs text-base-500">{DIAS[isoDow(fecha)]} {fecha.slice(8)} · {hora} con {barbero.nombre}</span>
+                </span>
+                <b className="text-lg tabular-nums">{soles(precio)}</b>
               </div>
               {error && <Aviso>{error}</Aviso>}
-              <button onClick={confirmar} disabled={enviando || (!verificado && !archivo)} className="btn-gradient py-3">
-                <CalendarCheck className="size-5" /> {enviando ? 'Reservando…' : verificado ? 'Confirmar cita' : 'Enviar comprobante y reservar'}
+              <button onClick={confirmar} disabled={enviando || (!verificado && modo === 'ADELANTO' && !archivo)} className="btn-primario w-full py-3.5">
+                <CalendarCheck className="size-5" />
+                {enviando ? 'Reservando…' : verificado || sinAdelanto ? 'Confirmar cita' : 'Enviar comprobante y reservar'}
               </button>
-              {verificado && barbero.whatsapp && (
-                <a href={`https://wa.me/${barbero.whatsapp}?text=${encodeURIComponent(`Hola ${barbero.nombre}, soy ${cliente.nombre}. Quiero confirmar mi cita de ${servicio.nombre} el ${DIAS[isoDow(fecha)]} ${fecha.slice(8)} a las ${hora}. ¡Gracias!`)}`}
-                  target="_blank" rel="noopener" className="btn text-green-500 border-green-500/30">
-                  <MessageCircle className="size-4" /> Confirmar por WhatsApp
-                </a>
-              )}
             </>
           )}
         </section>
@@ -212,30 +243,37 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   );
 }
 
-function Listo({ estado, barbero, servicio, fecha, hora, duracion, onListo }: {
-  estado: string; barbero: Barbero; servicio: string; fecha: string; hora: string; duracion: number; onListo: () => void;
+function Listo({ barbero, cliente, servicio, precio, fecha, hora, duracion, resultado, onListo }: {
+  barbero: Barbero; cliente: Cliente | null; servicio: string; precio: number; fecha: string; hora: string; duracion: number;
+  resultado: Resultado; onListo: () => void;
 }) {
   const ini = new Date(`${fecha}T${hora}:00-05:00`);
   const fin = new Date(ini.getTime() + duracion * 60e3);
   const f = (d: Date) => d.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
   const cal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${servicio} con ${barbero.nombre}`)}&dates=${f(ini)}/${f(fin)}&location=${encodeURIComponent(location.origin + '/como-llegar')}`;
+  const texto = cliente && mensajeWhatsApp({ barbero, cliente, servicio, precio, fecha, hora, resultado });
+  const wa = barbero.whatsapp && texto ? `https://wa.me/${barbero.whatsapp}?text=${encodeURIComponent(texto)}` : null;
+  const explica = resultado === 'CONFIRMADA'
+    ? 'Tu cita está confirmada. Te esperamos.'
+    : resultado === 'CON_COMPROBANTE'
+      ? 'Recibimos tu comprobante. Te confirmamos apenas lo validemos.'
+      : `${barbero.nombre} revisará tu solicitud. Escríbele por WhatsApp para que te confirme más rápido.`;
   return (
-    <div className="text-center grid gap-4 py-4">
-      <p className="text-5xl">{estado === 'CONFIRMADA' ? '🎉' : '⏳'}</p>
-      <p className="titulo text-lg">{estado === 'CONFIRMADA' ? '¡Cita confirmada!' : '¡Reserva enviada!'}</p>
-      <p className="text-sm text-base-500">
-        {servicio} con <b>{barbero.nombre}</b> · {DIAS[isoDow(fecha)]} {fecha.slice(8)} a las {hora}.
-        {estado !== 'CONFIRMADA' && ' Te confirmamos apenas validemos tu comprobante. Mira el estado en tu perfil.'}
-      </p>
-      <a href={cal} target="_blank" rel="noopener" className="btn">📅 Añadir a Google Calendar</a>
-      {barbero.whatsapp && (
-        <a href={`https://wa.me/${barbero.whatsapp}?text=${encodeURIComponent(`Hola ${barbero.nombre}, acabo de reservar ${servicio} para el ${DIAS[isoDow(fecha)]} ${fecha.slice(8)} a las ${hora}. ¡Nos vemos!`)}`}
-          target="_blank" rel="noopener" className="btn text-green-500">
-          <MessageCircle className="inline size-4" /> Escribir por WhatsApp
+    <div className="grid gap-5 text-center py-2">
+      <CheckCircle2 className="mx-auto size-14 text-emerald-400" />
+      <div>
+        <p className="titulo text-xl">{resultado === 'CONFIRMADA' ? '¡Cita confirmada!' : '¡Solicitud enviada!'}</p>
+        <p className="text-sm text-base-400 mt-2">{servicio} con <b className="text-base-100">{barbero.nombre}</b><br />{DIAS[isoDow(fecha)]} {fecha.slice(8)} a las {hora}</p>
+      </div>
+      <p className="panel text-sm text-left">{explica}</p>
+      {wa && (
+        <a href={wa} target="_blank" rel="noopener" className="btn-whatsapp w-full py-3.5">
+          <MessageCircle className="size-5" /> Avisar a {barbero.nombre} por WhatsApp
         </a>
       )}
-      <a href="/perfil" className="btn">Ver mis citas</a>
-      <button onClick={onListo} className="text-xs text-base-400">Cerrar</button>
+      <a href={cal} target="_blank" rel="noopener" className="btn w-full">📅 Añadir a Google Calendar</a>
+      <a href="/perfil" className="btn w-full">Ver mis citas</a>
+      <button onClick={onListo} className="text-sm text-base-500 py-2">Cerrar</button>
     </div>
   );
 }

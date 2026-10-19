@@ -13,7 +13,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
 
   if (nombre.length < 2 || nombre.length > 80) return json({ error: 'Nombre de barbería inválido' }, 400);
   if (!USUARIO.test(usuario)) return json({ error: 'Usuario: 3 a 24 letras minúsculas, números o _' }, 400);
-  if (clave.length < 10 || !/\d/.test(clave) || !/[a-zA-Z]/.test(clave)) return json({ error: 'La clave necesita 10+ caracteres con letras y números' }, 400);
+  if (clave.length < 6) return json({ error: 'La clave necesita al menos 6 caracteres' }, 400);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Correo inválido' }, 400);
   if (!(await turnstileOk(env, body.turnstile, request.headers.get('CF-Connecting-IP')))) return json({ error: 'Verificación anti-bots fallida' }, 400);
 

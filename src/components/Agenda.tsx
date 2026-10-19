@@ -4,7 +4,8 @@ import { msg, notificar, subirImagen, supabase, urlComprobante } from '@/lib/sup
 import { hoyLima, sumarDias } from '@/lib/agenda';
 import type { Barberia, Barbero, Cita, Servicio } from '@/lib/tipos';
 import { ESTADOS_CITA, soles } from '@/lib/tipos';
-import { Aviso, Hoja, Insignia } from './ui';
+import { Aviso, BotonAccion, CampoImagen, Esqueleto, Hoja, Insignia } from './ui';
+import { Tarjetas, type Tarjeta } from './ClientesPanel';
 
 const SELECT = '*, clientes(nombre, dni, telefono, estado_verificacion), servicios_cortes(nombre), barberos(nombre)';
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
@@ -13,10 +14,15 @@ const dia = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { timeZon
 /** Aviso sonoro corto sin archivos: un "ding" con WebAudio. */
 function ding() {
   try {
-    const c = new AudioContext(), o = c.createOscillator(), g = c.createGain();
-    o.frequency.value = 880; o.connect(g); g.connect(c.destination);
-    g.gain.setValueAtTime(0.2, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.5);
-    o.start(); o.stop(c.currentTime + 0.5);
+    const c = new AudioContext();
+    [[1318.5, 0], [1568, 0.14]].forEach(([f, t]) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(0, c.currentTime + t);
+      g.gain.linearRampToValueAtTime(0.3, c.currentTime + t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + t + 0.6);
+      o.start(c.currentTime + t); o.stop(c.currentTime + t + 0.6);
+    });
   } catch { /* sin audio */ }
 }
 
@@ -33,6 +39,9 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
   const [comprobante, setComprobante] = useState<{ cita: Cita; url?: string } | null>(null);
   const [completando, setCompletando] = useState<Cita | null>(null);
   const [walkin, setWalkin] = useState(false);
+  const [verTodo, setVerTodo] = useState(false);
+  const [cargando, setCargando] = useState(true);
+  const mia = (c: Cita) => puedeValidar(c) || (!!soloBarbero && c.barbero_id === soloBarbero);
 
   const cargar = useCallback(async () => {
     const desde = new Date(`${fecha}T00:00:00-05:00`).toISOString();
@@ -42,7 +51,8 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
     if (filtro) { q = q.eq('barbero_id', filtro); p = p.eq('barbero_id', filtro); }
     const [a, b] = await Promise.all([q, p]);
     setCitas((a.data ?? []) as Cita[]);
-    setPendientes(((b.data ?? []) as Cita[]).filter(puedeValidar));
+    setCargando(false);
+    setPendientes(((b.data ?? []) as Cita[]).filter(mia));
   }, [fecha, filtro, barberia.id]);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -53,9 +63,9 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
     const canal = supabase.channel(`citas:${barberia.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'citas', filter: `barberia_id=eq.${barberia.id}` }, (e) => {
         const c = e.new as Cita;
-        if (e.eventType === 'INSERT' && c.estado === 'PENDIENTE_PAGO' && puedeValidar(c)) {
+        if (e.eventType === 'INSERT' && c.estado === 'PENDIENTE_PAGO' && mia(c)) {
           ding();
-          if ('Notification' in window && Notification.permission === 'granted') new Notification('💈 Nuevo comprobante de pago', { body: 'Hay una reserva esperando validación.' });
+          if ('Notification' in window && Notification.permission === 'granted') new Notification('💈 Nueva cita por validar', { body: 'Un cliente espera tu confirmación.' });
         }
         cargar();
       }).subscribe();
@@ -73,6 +83,9 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
   }
 
   const vivas = citas.filter((c) => !['CANCELADA', 'RECHAZADA'].includes(c.estado));
+  const orden: Record<string, number> = { EN_CURSO: 0, EN_COLA: 1, PENDIENTE_PAGO: 2, CONFIRMADA: 3 };
+  const visibles = (verTodo ? citas : citas.filter((c) => c.estado in orden))
+    .slice().sort((a, b) => (orden[a.estado] ?? 9) - (orden[b.estado] ?? 9) || a.fecha_hora.localeCompare(b.fecha_hora));
   const cobrado = citas.filter((c) => c.estado === 'COMPLETADA').reduce((n, c) => n + Number(c.precio), 0);
 
   const Fila = ({ c, conFecha }: { c: Cita; conFecha?: boolean }) => {
@@ -90,12 +103,14 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
             {c.clientes?.dni && ` · DNI ${c.clientes.dni}`}{c.clientes?.telefono && <> · <a className="text-acento-500" href={`https://wa.me/51${c.clientes.telefono.replace(/\D/g, '').slice(-9)}`} target="_blank" rel="noopener">WhatsApp</a></>}
           </span>
         </span>
-        <span className={`text-xs font-medium ${e.clase}`}>{e.texto}</span>
+        <span className={`text-xs font-medium ${e.clase}`}>{c.estado === 'PENDIENTE_PAGO' && !c.comprobante_pago_url ? 'Sin adelanto · pide confirmación' : e.texto}</span>
         <span className="flex gap-1.5 flex-wrap">
-          {c.estado === 'PENDIENTE_PAGO' && puedeValidar(c) && <button className="btn !py-1 text-xs" onClick={() => verComprobante(c)}>🧾 Revisar pago</button>}
+          {c.estado === 'PENDIENTE_PAGO' && mia(c) && (c.comprobante_pago_url
+            ? <button className="btn !py-1 text-xs" onClick={() => verComprobante(c)}>🧾 Revisar pago</button>
+            : <button className="btn-acento !py-1 text-xs" onClick={() => rpc('confirmar_cita_conocido', { p_cita: c.id })}><Check className="size-3" /> Lo conozco · confirmar</button>)}
           {(c.estado === 'CONFIRMADA' || c.estado === 'EN_COLA') && <>
-            <button className="btn !py-1 text-xs" onClick={() => rpc('iniciar_cita', { p_cita: c.id })}><Play className="size-3" /> Iniciar</button>
-            <button className="btn !py-1 text-xs" onClick={() => rpc('marcar_no_asistio', { p_cita: c.id })}>No vino</button>
+            <BotonAccion className="btn !py-1 text-xs" onClick={() => rpc('iniciar_cita', { p_cita: c.id })}><Play className="size-3" /> Iniciar</BotonAccion>
+            <BotonAccion className="btn !py-1 text-xs" onClick={() => rpc('marcar_no_asistio', { p_cita: c.id })}>No vino</BotonAccion>
           </>}
           {c.estado === 'EN_CURSO' && <button className="btn-acento !py-1 text-xs" onClick={() => setCompletando(c)}><Check className="size-3" /> Completar</button>}
           {['PENDIENTE_PAGO', 'CONFIRMADA', 'EN_COLA'].includes(c.estado) &&
@@ -109,7 +124,7 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
     <div className="grid gap-4">
       {pendientes.length > 0 && (
         <section className="neu rounded-2xl p-4 ring-2 ring-amber-500/50">
-          <h3 className="titulo text-sm mb-2">🧾 Pagos por validar ({pendientes.length})</h3>
+          <h3 className="titulo text-sm mb-2">🧾 Citas por validar ({pendientes.length})</h3>
           <ul className="grid gap-2">{pendientes.map((c) => <Fila key={c.id} c={c} conFecha />)}</ul>
         </section>
       )}
@@ -125,18 +140,22 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
             {barberos.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
           </select>
         )}
-        <button className="btn-acento ml-auto" onClick={() => setWalkin(true)}><UserPlus className="size-4" /> Walk-in</button>
+        <button className="btn !py-2 text-xs ml-auto" onClick={() => setVerTodo((v) => !v)} aria-pressed={verTodo}>
+          {verTodo ? 'Ver solo activas' : 'Ver todas'}
+        </button>
+        <button className="btn-acento" onClick={() => setWalkin(true)}><UserPlus className="size-4" /> Walk-in</button>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="neu-inset rounded-xl p-2"><p className="text-xl font-semibold">{vivas.length}</p><p className="text-[11px] text-base-500">citas</p></div>
-        <div className="neu-inset rounded-xl p-2"><p className="text-xl font-semibold">{citas.filter((c) => c.estado === 'COMPLETADA').length}</p><p className="text-[11px] text-base-500">atendidos</p></div>
-        <div className="neu-inset rounded-xl p-2"><p className="text-xl font-semibold">{soles(cobrado)}</p><p className="text-[11px] text-base-500">facturado</p></div>
+        <div className="neu-inset rounded-xl p-2"><p className="text-base font-semibold tabular-nums sm:text-xl">{vivas.length}</p><p className="text-[11px] text-base-500">citas</p></div>
+        <div className="neu-inset rounded-xl p-2"><p className="text-base font-semibold tabular-nums sm:text-xl">{citas.filter((c) => c.estado === 'COMPLETADA').length}</p><p className="text-[11px] text-base-500">atendidos</p></div>
+        <div className="neu-inset rounded-xl p-2"><p className="text-base font-semibold tabular-nums sm:text-xl">{soles(cobrado)}</p><p className="text-[11px] text-base-500">facturado</p></div>
       </div>
       {error && <Aviso>{error}</Aviso>}
       <ul className="grid gap-2">
-        {citas.map((c) => <Fila key={c.id} c={c} />)}
-        {citas.length === 0 && <p className="text-sm text-base-400 text-center py-8">Sin citas este día.</p>}
+        {cargando && [0, 1, 2].map((i) => <Esqueleto key={i} className="h-16" />)}
+        {!cargando && visibles.map((c) => <Fila key={c.id} c={c} />)}
+        {!cargando && visibles.length === 0 &&<p className="text-sm text-base-400 text-center py-8">{verTodo ? 'Sin citas este día.' : 'No hay citas pendientes ni en cola.'}</p>}
       </ul>
 
       <Hoja abierta={!!comprobante} onClose={() => setComprobante(null)} titulo="Comprobante de pago">
@@ -158,7 +177,7 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
       </Hoja>
 
       <Hoja abierta={walkin} onClose={() => setWalkin(false)} titulo="Cliente sin cita (walk-in)">
-        <Walkin barberos={soloBarbero ? barberos.filter((b) => b.id === soloBarbero) : barberos.filter((b) => b.activo)} servicios={servicios}
+        <Walkin barberiaId={barberia.id} barberos={soloBarbero ? barberos.filter((b) => b.id === soloBarbero) : barberos.filter((b) => b.activo)} servicios={servicios}
           onListo={() => { setWalkin(false); cargar(); }} />
       </Hoja>
     </div>
@@ -169,6 +188,14 @@ function Completar({ cita, barberiaId, onListo }: { cita: Cita; barberiaId: stri
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
   const yaPagado = cita.verificado_pago;
+  const [tarjetas, setTarjetas] = useState<Tarjeta[] | null>(null);
+  if (tarjetas) return (
+    <div className="grid gap-4">
+      <p className="text-sm font-semibold">Corte completado. Cartilla de {cita.clientes?.nombre || cita.nombre_walkin || 'el cliente'}:</p>
+      <Tarjetas tarjetas={tarjetas} />
+      <button className="btn-acento" onClick={onListo}>Listo</button>
+    </div>
+  );
   async function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -180,7 +207,8 @@ function Completar({ cita, barberiaId, onListo }: { cita: Cita; barberiaId: stri
         p_cita: cita.id, p_metodo: f.get('metodo'), p_monto: Number(f.get('monto')), p_foto: url,
       });
       if (error) throw error;
-      onListo();
+      const { data } = await supabase.rpc('tarjetas_cliente', { p_cliente: cita.cliente_id, p_barberia: barberiaId });
+      setTarjetas((data ?? []) as Tarjeta[]);
     } catch (e) { setError(msg(e)); } finally { setEnviando(false); }
   }
   return (
@@ -192,29 +220,125 @@ function Completar({ cita, barberiaId, onListo }: { cita: Cita; barberiaId: stri
         </select></label>
       <label><span className="etiqueta">Monto cobrado (S/)</span>
         <input name="monto" type="number" step="0.5" min="0" required defaultValue={cita.precio} className="campo" /></label>
-      <label><span className="etiqueta">📸 Foto del corte (aparece en el historial del cliente)</span>
-        <input name="foto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="text-sm" /></label>
+      <div className="grid gap-1.5">
+        <span className="etiqueta">📸 Foto del corte (aparece en el historial del cliente)</span>
+        <CampoImagen name="foto" texto="Tomar o subir foto del corte" />
+      </div>
       {error && <Aviso>{error}</Aviso>}
       <button disabled={enviando} className="btn-acento">{enviando ? 'Guardando…' : 'Terminar y liberar silla'}</button>
     </form>
   );
 }
 
-function Walkin({ barberos, servicios, onListo }: { barberos: Barbero[]; servicios: Servicio[]; onListo: () => void }) {
+function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: string; barberos: Barbero[]; servicios: Servicio[]; onListo: () => void }) {
   const [error, setError] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [dni, setDni] = useState('');
+  const [tipo, setTipo] = useState<'DNI' | 'CE' | 'PASAPORTE'>('DNI');
+  const [buscando, setBuscando] = useState(false);
+  const [frecuentes, setFrecuentes] = useState<{ nombre: string; dni: string | null }[]>([]);
+
+  useEffect(() => {
+    supabase.from('citas').select('nombre_walkin, clientes(nombre, dni)').eq('barberia_id', barberiaId)
+      .order('fecha_hora', { ascending: false }).limit(300)
+      .then(({ data }) => {
+        const cuenta = new Map<string, { nombre: string; dni: string | null; n: number }>();
+        for (const c of (data ?? []) as { nombre_walkin: string | null; clientes: { nombre: string | null; dni: string | null } | null }[]) {
+          const nom = c.clientes?.nombre || c.nombre_walkin;
+          if (!nom) continue;
+          const clave = c.clientes?.dni || nom.toLowerCase();
+          cuenta.set(clave, { nombre: nom, dni: c.clientes?.dni ?? null, n: (cuenta.get(clave)?.n ?? 0) + 1 });
+        }
+        setFrecuentes([...cuenta.values()].sort((a, b) => b.n - a.n).slice(0, 8));
+      });
+  }, [barberiaId]);
+
+  const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
+  useEffect(() => {
+    setHistorial(null);
+    const valido = tipo === 'DNI' ? dni.length === 8 : dni.length >= 6;
+    if (!valido) return;
+    let vivo = true;
+    (async () => {
+      const { data: encontrados } = await supabase.rpc('buscar_cliente_dni', { p_dni: dni });
+      const id = (encontrados as { id: string }[] | null)?.[0]?.id;
+      if (!id) { if (vivo) setHistorial([]); return; }
+      const { data } = await supabase.from('citas').select('fecha_hora, servicios_cortes(nombre), barberos(nombre)')
+        .eq('barberia_id', barberiaId).eq('cliente_id', id).eq('estado', 'COMPLETADA')
+        .order('fecha_hora', { ascending: false }).limit(50);
+      if (!vivo) return;
+      setHistorial(((data ?? []) as unknown as { fecha_hora: string; servicios_cortes: { nombre: string } | null; barberos: { nombre: string } | null }[])
+        .map((c) => ({ servicio: c.servicios_cortes?.nombre ?? 'Corte', fecha: c.fecha_hora, barbero: c.barberos?.nombre ?? '' })));
+    })();
+    return () => { vivo = false; };
+  }, [dni, tipo, barberiaId]);
+
+  async function buscarDni() {
+    setError(''); setBuscando(true);
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    const r = await fetch(`/api/dni/${dni}`, { headers: { Authorization: `Bearer ${token}` } }).then((x) => x.json()).catch(() => null);
+    setBuscando(false);
+    if (!r || r.error) return setError(r?.error || 'No se pudo consultar. Escribe el nombre a mano.');
+    if (!r.encontrado) return setError('DNI no encontrado. Escribe el nombre a mano.');
+    setNombre(`${r.nombres} ${r.apellidos}`.trim());
+  }
+
   async function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const { error } = await supabase.rpc('agregar_walkin', {
-      p_barbero: f.get('barbero'), p_nombre: String(f.get('nombre')).trim(),
-      p_dni: String(f.get('dni')).trim() || null, p_servicio: f.get('servicio') || null,
+      p_barbero: f.get('barbero'), p_nombre: nombre.trim(),
+      p_dni: dni.trim(), p_servicio: f.get('servicio') || null, p_tipo: tipo,
     });
     if (error) setError(msg(error)); else onListo();
   }
   return (
     <form onSubmit={enviar} className="grid gap-3">
-      <label><span className="etiqueta">Nombre</span><input name="nombre" required className="campo" /></label>
-      <label><span className="etiqueta">DNI (opcional, suma a su tarjeta de lealtad)</span><input name="dni" inputMode="numeric" pattern="[0-9]{8}" className="campo" /></label>
+      {frecuentes.length > 0 && (
+        <div className="grid gap-1.5">
+          <span className="etiqueta">Clientes frecuentes</span>
+          <div className="flex flex-wrap gap-1.5">
+            {frecuentes.map((c) => (
+              <button type="button" key={c.dni ?? c.nombre} onClick={() => { setNombre(c.nombre); setDni(c.dni ?? ''); }}
+                className="chip min-h-9 !px-3 !text-sm">{c.nombre}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="grid gap-1.5">
+        <span className="etiqueta">Documento (obligatorio: con él se suman los cortes)</span>
+        <div className="flex gap-2">
+          <select value={tipo} onChange={(e) => { setTipo(e.target.value as typeof tipo); setDni(''); }} className="campo !w-auto" aria-label="Tipo de documento">
+            <option value="DNI">DNI</option>
+            <option value="CE">Carné de extranjería</option>
+            <option value="PASAPORTE">Pasaporte</option>
+          </select>
+          <input value={dni} onChange={(e) => setDni(tipo === 'DNI' ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20).toUpperCase())}
+            inputMode={tipo === 'DNI' ? 'numeric' : 'text'} placeholder={tipo === 'DNI' ? '8 dígitos' : 'Número de documento'} required className="campo" />
+          {tipo === 'DNI' && <button type="button" className="btn shrink-0" disabled={dni.length !== 8 || buscando} onClick={buscarDni}>{buscando ? '…' : 'Buscar'}</button>}
+        </div>
+      </div>
+      {historial && (
+        <div className="panel grid gap-2 text-sm">
+          {historial.length === 0 ? <p>Cliente nuevo o sin cortes previos en el local.</p> : (() => {
+            const conteo = new Map<string, number>();
+            historial.forEach((h) => conteo.set(h.servicio, (conteo.get(h.servicio) ?? 0) + 1));
+            const [top, veces] = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0];
+            return (
+              <>
+                <p><b>Lo de siempre:</b> {top} <span className="text-[var(--texto-suave)]">({veces} de {historial.length} cortes)</span></p>
+                <ul className="grid gap-1 text-xs text-[var(--texto-suave)]">
+                  {historial.slice(0, 3).map((h) => (
+                    <li key={h.fecha}>{new Date(h.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima', day: 'numeric', month: 'short' })} · {h.servicio} · con {h.barbero}</li>
+                  ))}
+                </ul>
+              </>
+            );
+          })()}
+        </div>
+      )}
+      <label><span className="etiqueta">Nombre y apellidos</span>
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} required className="campo" /></label>
       <label><span className="etiqueta">Barbero</span>
         <select name="barbero" className="campo">{barberos.map((b) => <option key={b.id} value={b.id}>{b.nombre} {b.cola ? `(cola ${b.cola})` : ''}</option>)}</select></label>
       <label><span className="etiqueta">Servicio</span>

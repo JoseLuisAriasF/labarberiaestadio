@@ -12,6 +12,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        display: ['"Bebas Neue"', 'Impact', 'sans-serif'],
         serif: ['Literata', 'ui-serif', 'Georgia', 'serif'],
       },
       colors: {
@@ -31,10 +32,10 @@ export default {
         },
         // Acento índigo suave
         acento: {
-          300: '#a5b4fc',
-          400: '#8b9bf7',
-          500: '#6d7ff0',
-          600: '#5563d8',
+          300: '#fde047',
+          400: '#facc15',
+          500: '#eab308',
+          600: '#ca8a04',
         },
       },
       boxShadow: {

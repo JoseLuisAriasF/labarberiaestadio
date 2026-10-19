@@ -14,14 +14,33 @@ export function codigoActual(): string {
   return (q && /^B\d{1,6}$/i.test(q) ? q : (import.meta.env.PUBLIC_BARBERIA || 'B1')).toUpperCase();
 }
 
+/** Subdominio de la barbería (elestadiobarberia.pages.dev → elestadiobarberia); null en el sitio raíz. */
+export function slugActual(): string | null {
+  const h = location.hostname;
+  if (!h.endsWith('.pages.dev') || h === 'labarberiaestadio.pages.dev') return null;
+  const s = h.split('.')[0].toLowerCase();
+  return /^[a-z0-9-]{3,40}$/.test(s) ? s : null;
+}
+
 /** El personal entra con código + usuario + clave (como un POS). Por debajo es
     una cuenta de Supabase con este correo sintético, que nadie escribe. */
 export const emailStaff = (codigo: string, usuario: string) =>
   `${usuario.trim().toLowerCase()}.${codigo.trim().toLowerCase()}@staff.labarberiaestadio.pages.dev`;
 
 /** Mensaje legible de un error de Supabase/Postgres (los RAISE ya vienen en español). */
-export const msg = (e: unknown) =>
-  (e as { message?: string })?.message?.replace(/^.*?ERROR:\s*/, '') || 'Algo salió mal. Intenta otra vez.';
+const AYUDA: [RegExp, string][] = [
+  [/is of type jsonb|invalid input syntax for type json/i, 'Un dato no tiene el formato correcto. Revisa los campos (horario, especialidades) y vuelve a guardar. Si sigue, recarga la página.'],
+  [/violates check constraint/i, 'Un dato no cumple la regla. Revisa el largo o el formato (por ejemplo, el DNI son 8 números y el usuario sin espacios ni mayúsculas).'],
+  [/duplicate key|already exists/i, 'Ya existe un registro con ese dato (un DNI, usuario o cita repetida). Busca el existente antes de crear otro.'],
+  [/null value in column/i, 'Falta llenar un campo obligatorio. Completa todos los campos marcados.'],
+  [/row-level security|permission denied|Sin permiso|Solo personal|No eres dueño/i, 'No tienes permiso para esta acción. Entra con la cuenta de la barbería correcta.'],
+];
+
+export const msg = (e: unknown) => {
+  const texto = (e as { message?: string })?.message ?? '';
+  const ayuda = AYUDA.find(([re]) => re.test(texto));
+  return ayuda ? ayuda[1] : texto.replace(/^.*?ERROR:\s*/, '') || 'Algo salió mal. Intenta otra vez.';
+};
 
 /** Sube una imagen al bucket y devuelve su ruta (y URL pública si el bucket lo es). */
 export async function subirImagen(bucket: 'publico' | 'comprobantes', carpeta: string, archivo: File) {
@@ -64,7 +83,7 @@ export async function suscribirPush() {
 }
 
 /** Fire-and-forget: notifica por email al barbero y/o cliente. No bloquea ni lanza errores. */
-export function notificar(tipo: 'cita_confirmada' | 'cita_nueva' | 'pago_recibido', cita_id: string) {
+export function notificar(tipo: 'cita_confirmada' | 'cita_nueva' | 'pago_recibido' | 'cita_cancelada' | 'cita_reprogramada', cita_id: string) {
   supabase.auth.getSession().then(({ data: { session } }) => {
     fetch('/api/notify', {
       method: 'POST',

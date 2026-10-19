@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, Gift, LayoutGrid, LogOut, MapPin, Menu, Package, PartyPopper, Scissors, ShieldCheck, Users, Wallet, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { BarChart3, CalendarDays, Gift, LayoutGrid, LogOut, MapPin, Menu, Package, PartyPopper, Scissors, ShieldCheck, UserCheck, Users, Wallet, X } from 'lucide-react';
+import { msg, supabase } from '@/lib/supabase';
+import BarberApp from '../barber/BarberApp';
+import { iniciarGuia } from '@/lib/guia';
 import { useBarberia } from '@/lib/useBarberia';
 import type { Premio, Producto, Servicio } from '@/lib/tipos';
 import { soles } from '@/lib/tipos';
 import Agenda from '../Agenda';
-import VerificarDni from '../VerificarDni';
+import ClientesPanel from '../ClientesPanel';
 import { Aviso, Cargando } from '../ui';
 import Crud from './Crud';
 import Equipo from './Equipo';
+import Estadisticas from './Estadisticas';
 import Finanzas from './Finanzas';
 import Local from './Local';
 import Pisos from './Pisos';
 import Festivos from './Festivos';
+
+const PRINCIPALES = ['agenda', 'clientes', 'finanzas', 'equipo'];
 
 const TABS = [
   { id: 'agenda', t: 'Citas', I: CalendarDays },
@@ -23,6 +28,8 @@ const TABS = [
   { id: 'lealtad', t: 'Lealtad', I: Gift },
   { id: 'productos', t: 'Productos', I: Package },
   { id: 'finanzas', t: 'Finanzas', I: Wallet },
+  { id: 'estadisticas', t: 'Estadísticas', I: BarChart3 },
+  { id: 'mijornada', t: 'Mi jornada', I: UserCheck },
   { id: 'local', t: 'Local', I: MapPin },
   { id: 'festivos', t: 'Festivos', I: PartyPopper },
 ] as const;
@@ -30,6 +37,7 @@ type Tab = (typeof TABS)[number]['id'];
 
 export default function AdminApp() {
   const [barberiaId, setBarberiaId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>(() => (location.hash.slice(1) as Tab) || 'agenda');
   const [menuAbierto, setMenuAbierto] = useState(false);
 
@@ -39,6 +47,7 @@ export default function AdminApp() {
       const { data } = await supabase.from('barberias').select('id').eq('owner_id', user.id).maybeSingle();
       if (!data) return location.replace('/login');
       setBarberiaId(data.id);
+      setUserId(user.id);
     });
   }, []);
   useEffect(() => { history.replaceState(null, '', `#${tab}`); }, [tab]);
@@ -54,18 +63,21 @@ export default function AdminApp() {
     <>
       <div className="p-5 border-b border-white/5">
         <p className="text-base font-bold text-white truncate">💈 {barberia.nombre}</p>
-        <p className="text-xs text-gray-400 mt-0.5">Código <b className="text-purple-400">{barberia.codigo}</b></p>
-        <a href={`/?b=${barberia.codigo}`} target="_blank" className="text-xs text-purple-400 hover:text-purple-300 mt-1 inline-block">Ver web pública ↗</a>
+        <p className="text-xs text-gray-400 mt-0.5">Código <b className="text-acento-400">{barberia.codigo}</b></p>
+        <a href={`/?b=${barberia.codigo}`} target="_blank" className="text-xs text-acento-400 hover:text-acento-300 mt-1 inline-block">Ver web pública ↗</a>
       </div>
       <div className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
         {TABS.map(({ id, t, I }) => (
-          <button key={id} onClick={() => ir(id)} aria-current={tab === id ? 'page' : undefined}
-            className="w-full rounded-lg px-3 py-2.5 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors aria-[current=page]:bg-purple-500/15 aria-[current=page]:text-purple-400 aria-[current=page]:font-medium">
+          <button key={id} onClick={() => ir(id)} data-guia={`tab-${id}`} aria-current={tab === id ? 'page' : undefined}
+            className="w-full rounded-lg px-3 py-2.5 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors aria-[current=page]:bg-acento-500/15 aria-[current=page]:text-acento-400 aria-[current=page]:font-semibold">
             <I className="size-4 shrink-0" /> {t}
           </button>
         ))}
       </div>
       <div className="p-3 border-t border-white/5">
+        <button onClick={() => iniciarGuia('admin')} className="w-full rounded-lg px-3 py-2 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+          ¿Cómo uso el panel?
+        </button>
         <button onClick={() => supabase.auth.signOut().then(() => location.replace('/login'))}
           className="w-full rounded-lg px-3 py-2 text-sm flex items-center gap-3 text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors">
           <LogOut className="size-4" /> Cerrar sesión
@@ -87,7 +99,7 @@ export default function AdminApp() {
           {menuAbierto ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
         <span className="text-sm font-semibold text-white truncate">{barberia.nombre}</span>
-        <span className="text-xs text-purple-400 ml-auto">{TABS.find((t) => t.id === tab)?.t}</span>
+        <span className="text-xs text-acento-400 ml-auto">{TABS.find((t) => t.id === tab)?.t}</span>
       </div>
       {menuAbierto && (
         <>
@@ -98,8 +110,21 @@ export default function AdminApp() {
         </>
       )}
 
+      {/* Navegación inferior: pulgar a la mano en celular; "Más" abre el menú completo */}
+      <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+        {TABS.filter((t) => PRINCIPALES.includes(t.id)).map(({ id, t, I }) => (
+          <button key={id} onClick={() => ir(id)} aria-current={tab === id ? 'page' : undefined}
+            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold ${tab === id ? 'text-acento-400' : 'text-gray-400'}`}>
+            <I className="size-5" />{t}
+          </button>
+        ))}
+        <button onClick={() => setMenuAbierto(true)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400">
+          <Menu className="size-5" />Más
+        </button>
+      </nav>
+
       {/* Content */}
-      <div className="flex-1 min-w-0 lg:px-6 px-4 py-4 lg:py-6 lg:mt-0 mt-14">
+      <div className="flex-1 min-w-0 lg:px-6 px-4 py-4 pb-24 lg:py-6 lg:pb-6 lg:mt-0 mt-14">
         <div className="max-w-5xl mx-auto grid gap-4">
           {barberia.plan === 'TRIAL' && (
             <Aviso tipo={dias > 7 ? 'info' : 'error'}>
@@ -129,7 +154,7 @@ export default function AdminApp() {
               )} />
           )}
           {tab === 'pisos' && <Pisos datos={datos} recargar={recargar} />}
-          {tab === 'clientes' && <VerificarDni />}
+          {tab === 'clientes' && <ClientesPanel barberiaId={barberia.id} />}
           {tab === 'lealtad' && <Lealtad datos={datos} recargar={recargar} />}
           {tab === 'productos' && (
             <Crud<Producto> tabla="productos" barberiaId={barberia.id} titulo="Productos a la venta"
@@ -148,11 +173,38 @@ export default function AdminApp() {
               )} />
           )}
           {tab === 'finanzas' && <Finanzas datos={datos} recargar={recargar} />}
+          {tab === 'estadisticas' && <Estadisticas datos={datos} />}
+          {tab === 'mijornada' && (datos.barberos.some((b) => b.usuario_id === userId)
+            ? <BarberApp />
+            : <ActivarPerfil onListo={recargar} />)}
           {tab === 'local' && <Local barberia={barberia} recargar={recargar} />}
           {tab === 'festivos' && <Festivos datos={datos} recargar={recargar} />}
         </div>
       </div>
     </div>
+  );
+}
+
+function ActivarPerfil({ onListo }: { onListo: () => void }) {
+  const [nombre, setNombre] = useState('');
+  const [error, setError] = useState('');
+  async function activar(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError('');
+    const { error } = await supabase.rpc('activar_perfil_barbero_dueno', { p_nombre: nombre });
+    if (error) setError(msg(error)); else onListo();
+  }
+  return (
+    <form onSubmit={activar} className="panel grid max-w-xl gap-3">
+      <h3 className="titulo">Atiende tú también</h3>
+      <p className="text-sm text-[var(--texto-suave)]">
+        Activa tu perfil de barbero para marcar tu llegada, atender la cola y registrar tus cortes. Sigues teniendo todas las herramientas de administrador.
+      </p>
+      <label><span className="etiqueta">Tu nombre (como lo ven los clientes)</span>
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={2} maxLength={60} className="campo" /></label>
+      {error && <Aviso>{error}</Aviso>}
+      <button className="btn-acento w-fit">Activar mi perfil de barbero</button>
+    </form>
   );
 }
 

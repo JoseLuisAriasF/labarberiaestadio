@@ -11,9 +11,11 @@ interface Props {
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
   /** Paneles privados (/admin, /barber, /perfil): fuera del índice y sin navbar público. */
   privado?: boolean;
+  /** App del personal (admin, barbero, ingreso): manifiesto y botón de instalación propios. */
+  personal?: boolean;
   anchoCompleto?: boolean;
 }
-const { titulo, descripcion, imagen = '/og.png', jsonLd, privado = false, anchoCompleto = false } = Astro.props;
+const { titulo, descripcion, imagen = '/og.png', jsonLd, privado = false, personal = false, anchoCompleto = false } = Astro.props;
 const { b, servicios } = await datosSitio();
 const site = Astro.site!;
 const canonical = new URL(Astro.url.pathname, site).toString();
@@ -33,9 +35,13 @@ const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTI
     <link rel="canonical" href={canonical} />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="manifest" href={privado ? '/manifest-staff.webmanifest' : '/manifest.webmanifest'} />
+    {import.meta.env.PUBLIC_SUPABASE_URL && <link rel="preconnect" href={import.meta.env.PUBLIC_SUPABASE_URL} crossorigin />}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&display=swap" />
+    <link rel="manifest" href={`/api/manifest?c=${encodeURIComponent(b.codigo)}&t=${personal ? 'staff' : 'cliente'}`} />
     <link rel="apple-touch-icon" href="/icono-192.png" />
-    <meta name="theme-color" content="#0e1117" />
+    <meta name="theme-color" content="#070707" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
 
     {/* GEO local: región, ciudad y coordenadas del local (Bing y buscadores locales los leen). */}
@@ -83,15 +89,40 @@ const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTI
       <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: TOKEN_ANALYTICS })}></script>
     )}
   </head>
-  <body class="min-h-dvh flex flex-col">
+  <body class="min-h-dvh flex flex-col" data-personal={personal ? '1' : '0'}>
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 btn z-50">Saltar al contenido</a>
-    <Header privado={privado} nombre={b.nombre} />
-    <main id="contenido" class:list={['flex-1 w-full mx-auto px-4 sm:px-6 py-6', anchoCompleto ? 'max-w-7xl' : 'max-w-6xl']}>
+    {!personal && <Header privado={privado} nombre={b.nombre} logo={b.logo_url || '/logo-barberia.jpg'} />}
+    <main id="contenido" class:list={[personal ? 'flex-1 w-full px-4 sm:px-6' : 'flex-1 w-full mx-auto px-4 sm:px-6 py-6', !personal && (anchoCompleto ? 'max-w-7xl' : 'max-w-6xl')]}>
       <slot />
     </main>
     {!privado && <Footer b={b} />}
     <script>
+      import { BIP_WAV } from '@/lib/bip';
       if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('/sw.js');
+
+      function bip() {
+        new Audio(BIP_WAV).play().catch(() => {});
+      }
+      navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data?.tipo === 'bip') bip(); });
+
+      const esPersonal = document.body.dataset.personal === '1';
+      const instalada = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone;
+      if (!instalada) {
+        let evento = null;
+        const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        const boton = document.createElement('button');
+        boton.className = 'btn-primario fixed z-40 shadow-lg !min-h-10 !py-2 !px-4 !text-sm';
+        boton.style.cssText = 'right:1rem;bottom:calc(max(1rem,env(safe-area-inset-bottom)) + 4.5rem);display:none';
+        boton.textContent = esPersonal ? 'Instalar app del personal' : 'Instalar la app';
+        document.body.appendChild(boton);
+        const mostrar = () => { boton.style.display = 'inline-flex'; };
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); evento = e; mostrar(); });
+        if (esIOS) mostrar();
+        boton.addEventListener('click', async () => {
+          if (evento) { evento.prompt(); await evento.userChoice; evento = null; boton.style.display = 'none'; }
+          else alert('En iPhone: toca el botón Compartir y luego "Agregar a inicio".');
+        });
+      }
     </script>
   </body>
 </html>

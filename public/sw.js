@@ -8,9 +8,10 @@ self.addEventListener('activate', (e) => e.waitUntil(
 self.addEventListener('push', (e) => {
   if (!e.data) return;
   const d = e.data.json();
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => cs.forEach((c) => c.postMessage({ tipo: 'bip' }))));
   e.waitUntil(self.registration.showNotification(d.title || '💈 El Estadio', {
     body: d.body, icon: d.icon || '/icono-192.png', badge: d.badge || '/icono-192.png',
-    data: { url: d.url || '/' }, vibrate: [100, 50, 100],
+    data: { url: d.url || '/' }, vibrate: [200, 100, 200], silent: false, renotify: true, tag: 'estadio-' + Date.now(),
   }));
 });
 self.addEventListener('notificationclick', (e) => {

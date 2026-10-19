@@ -5,7 +5,7 @@ import { Download, Globe, LocateFixed, QrCode, Save, Trash2, Upload } from 'luci
 import { msg, subirImagen, supabase } from '@/lib/supabase';
 import type { Barberia, Horario } from '@/lib/tipos';
 import EditorHorario from '../Horario';
-import { Aviso } from '../ui';
+import { Aviso, CampoImagen } from '../ui';
 import { staff } from './Equipo';
 
 const ICONO = L.divIcon({ html: '<div style="font-size:32px;line-height:1;filter:drop-shadow(0 2px 3px #0008)">💈</div>', className: '', iconSize: [32, 32], iconAnchor: [16, 30] });
@@ -63,6 +63,7 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
       nombre: b.nombre, descripcion: b.descripcion, telefono: b.telefono, whatsapp: b.whatsapp, email_contacto: b.email_contacto,
       direccion: b.direccion, referencia: b.referencia, distrito: b.distrito, ciudad: b.ciudad, lat: b.lat, lng: b.lng,
       horario: b.horario, fotos: b.fotos, yape_numero: b.yape_numero, plin_numero: b.plin_numero, titular_pago: b.titular_pago, qr_pago_url: b.qr_pago_url,
+      logo_url: b.logo_url || null,
     }).eq('id', barberia.id);
     if (error) return setError(msg(error));
     setOk('Guardado ✅');
@@ -84,6 +85,14 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
         {txt('telefono', 'Teléfono', { type: 'tel' })}
         {txt('whatsapp', 'WhatsApp (con 51)', { type: 'tel', placeholder: '51987654321' })}
         {txt('email_contacto', 'Correo de contacto', { type: 'email' })}
+        <div className="grid gap-2 sm:col-span-2">
+          <span className="etiqueta">Logo (se ve en la web y en el icono de la app). Pega un enlace https o sube una imagen.</span>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {txt('logo_url', 'Enlace del logo (https://…)', { placeholder: 'https://…' })}
+            <CampoImagen texto="Subir logo" actual={b.logo_url}
+              onChange={async (f) => { if (!f) return; try { const { url } = await subirImagen('publico', `${barberia.id}/logo`, f); set('logo_url', url); setOk('Logo subido. Guarda los cambios para publicarlo.'); } catch (e) { setError(msg(e)); } }} />
+          </div>
+        </div>
         <label className="sm:col-span-2"><span className="etiqueta">Descripción (sale en Google)</span>
           <textarea className="campo" rows={3} maxLength={600} value={b.descripcion ?? ''} onChange={(e) => set('descripcion', e.target.value)} /></label>
       </section>

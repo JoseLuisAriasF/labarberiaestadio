@@ -1,11 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
+import { enviarGmail } from './smtp';
 
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_KEY: string;
   TURNSTILE_SECRET?: string;
   DEPLOY_HOOK_URL?: string;
-  RESEND_API_KEY?: string;
+  GMAIL_USER?: string;
+  GMAIL_APP_PASSWORD?: string;
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
 }
@@ -14,6 +16,8 @@ export interface Env {
 // Auth (dueños y barberos), que desde el navegador no se puede ni se debe.
 export const admin = (env: Env) =>
   createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+
+export const enviarCorreo = (env: Env, p: { to: string; subject: string; html: string }) => enviarGmail(env, p);
 
 export const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {

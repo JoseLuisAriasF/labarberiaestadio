@@ -6,7 +6,9 @@ import type { Barbero, EstadoBarbero, Horario } from '@/lib/tipos';
 import { ESTADOS, soles } from '@/lib/tipos';
 import Agenda from '../Agenda';
 import EditorHorario from '../Horario';
-import VerificarDni from '../VerificarDni';
+import ClientesPanel from '../ClientesPanel';
+import { BotonAccion } from '../ui';
+import { iniciarGuia } from '@/lib/guia';
 import { Aviso, Cargando } from '../ui';
 
 export default function BarberApp() {
@@ -32,7 +34,7 @@ export default function BarberApp() {
 
   const { barberia } = datos;
   return (
-    <div className="grid gap-5 max-w-3xl mx-auto">
+    <div className="grid gap-5 max-w-3xl mx-auto pb-28 sm:pb-0">
       <header className="flex items-center gap-3">
         {vivo.avatar_url ? <img src={vivo.avatar_url} alt="" className="size-12 rounded-full object-cover" />
           : <span className="size-12 rounded-full grid place-items-center bg-acento-500 text-white font-bold">{vivo.nombre.slice(0, 2).toUpperCase()}</span>}
@@ -41,9 +43,12 @@ export default function BarberApp() {
           <p className="text-xs text-base-500">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
         </div>
       </header>
-      <nav className="neu-inset rounded-2xl p-1 grid grid-cols-4 gap-1 text-sm">
+      <div className="flex justify-end -mb-2">
+        <button type="button" onClick={() => iniciarGuia('barbero')} className="btn !py-1.5 text-xs">¿Cómo uso la app?</button>
+      </div>
+      <nav aria-label="Secciones" className="neu-inset rounded-2xl p-1 grid grid-cols-4 gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
         {([['jornada', 'Jornada'], ['agenda', 'Citas'], ['clientes', 'Clientes'], ['perfil', 'Mi perfil']] as const).map(([id, t]) => (
-          <button key={id} onClick={() => setTab(id)} aria-pressed={tab === id} className="py-2 rounded-xl aria-pressed:neu-sm aria-pressed:text-acento-500">{t}</button>
+          <button key={id} onClick={() => setTab(id)} data-guia={`tab-${id}`} aria-pressed={tab === id} className="py-2 rounded-xl aria-pressed:neu-sm aria-pressed:text-acento-500">{t}</button>
         ))}
       </nav>
       {tab === 'jornada' && <Estado yo={vivo} />}
@@ -52,7 +57,7 @@ export default function BarberApp() {
           // En modo INDIVIDUAL el dinero es suyo: él valida sus comprobantes.
           puedeValidar={(c) => barberia.modo_financiero === 'INDIVIDUAL' && c.barbero_id === vivo.id} />
       )}
-      {tab === 'clientes' && <VerificarDni />}
+      {tab === 'clientes' && <ClientesPanel barberiaId={vivo.barberia_id} />}
       {tab === 'perfil' && <Perfil yo={vivo} datos={datos} recargar={recargar} />}
     </div>
   );
@@ -62,6 +67,23 @@ export default function BarberApp() {
 function Estado({ yo }: { yo: Barbero }) {
   const [minutos, setMinutos] = useState(30);
   const [error, setError] = useState('');
+  const [cola, setCola] = useState<{ id: string; nombre_walkin: string | null; servicios_cortes: { nombre: string } | null }[]>([]);
+  async function cargarCola() {
+    const { data } = await supabase.from('citas').select('id, nombre_walkin, servicios_cortes(nombre)')
+      .eq('barbero_id', yo.id).eq('estado', 'EN_COLA').eq('tipo', 'WALKIN').order('fecha_hora').limit(20);
+    setCola((data ?? []) as typeof cola);
+  }
+  useEffect(() => { cargarCola(); }, [yo.id, yo.cola]);
+  async function empezar(id: string) {
+    setError('');
+    const { error } = await supabase.rpc('iniciar_cita', { p_cita: id });
+    if (error) setError(msg(error)); else cargarCola();
+  }
+  async function presencia(presente: boolean) {
+    setError('');
+    const { error } = await supabase.rpc('marcar_presencia', { p_barbero: yo.id, p_presente: presente });
+    if (error) setError(msg(error));
+  }
   async function cambiar(e: EstadoBarbero) {
     setError('');
     if ('vibrate' in navigator) navigator.vibrate(30);
@@ -70,7 +92,27 @@ function Estado({ yo }: { yo: Barbero }) {
   }
   return (
     <section className="grid gap-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div data-guia="llegada" className="panel flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm">
+          {yo.presente ? 'Estás en el local. Tus clientes te ven en su silla.' : 'Aún no llegas. Tu silla aparece vacía para los clientes.'}
+        </span>
+        <BotonAccion className={yo.presente ? 'btn' : 'btn-acento'} onClick={() => presencia(!yo.presente)}>
+          {yo.presente ? 'Me retiro' : 'Llegué al local'}
+        </BotonAccion>
+      </div>
+      {cola.length > 0 && (
+        <div data-guia="cola" className="panel grid gap-3 border-acento-500/60">
+          <p className="text-sm font-semibold">En cola: {cola.length} {cola.length === 1 ? 'persona' : 'personas'}</p>
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 text-sm">
+              <span className="block font-bold truncate">{cola[0].nombre_walkin || 'Cliente sin cita'}</span>
+              <span className="block text-xs text-[var(--texto-suave)]">{cola[0].servicios_cortes?.nombre ?? 'Corte'}</span>
+            </span>
+            <BotonAccion className="btn-acento shrink-0" onClick={() => empezar(cola[0].id)}>Empezar</BotonAccion>
+          </div>
+        </div>
+      )}
+      <div data-guia="estado" className="grid grid-cols-2 gap-3">
         {(Object.keys(ESTADOS) as EstadoBarbero[]).map((e) => {
           const s = ESTADOS[e], activo = yo.estado === e;
           return (
@@ -99,7 +141,7 @@ function CambiarClave({ onListo }: { onListo: () => void }) {
     const f = new FormData(e.currentTarget);
     const a = String(f.get('a')), b = String(f.get('b'));
     if (a !== b) return setError('Las claves no coinciden');
-    if (a.length < 10 || !/\d/.test(a) || !/[a-zA-Z]/.test(a)) return setError('Usa 10+ caracteres con letras y números');
+    if (a.length < 6) return setError('Usa al menos 6 caracteres');
     const { error } = await supabase.auth.updateUser({ password: a });
     if (error) return setError(msg(error));
     await supabase.rpc('clave_cambiada');
@@ -109,8 +151,8 @@ function CambiarClave({ onListo }: { onListo: () => void }) {
     <form onSubmit={enviar} className="max-w-sm mx-auto neu rounded-3xl p-6 grid gap-3">
       <h1 className="titulo text-xl">🔐 Crea tu clave personal</h1>
       <p className="text-sm text-base-500">Por seguridad, la clave temporal que te dio el dueño solo sirve para este primer ingreso.</p>
-      <label><span className="etiqueta">Nueva clave</span><input name="a" type="password" required minLength={10} autoComplete="new-password" className="campo" /></label>
-      <label><span className="etiqueta">Repítela</span><input name="b" type="password" required minLength={10} autoComplete="new-password" className="campo" /></label>
+      <label><span className="etiqueta">Nueva clave</span><input name="a" type="password" required minLength={6} autoComplete="new-password" className="campo" /></label>
+      <label><span className="etiqueta">Repítela</span><input name="b" type="password" required minLength={6} autoComplete="new-password" className="campo" /></label>
       {error && <Aviso>{error}</Aviso>}
       <button className="btn-acento">Guardar y entrar</button>
     </form>
