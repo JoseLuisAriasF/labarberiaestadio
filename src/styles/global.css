@@ -143,3 +143,28 @@
 }
 
 .leaflet-container { font: inherit; background: var(--superficie); }
+
+/* Efecto festivo: lluvia de emojis sobre la portada (ver EfectoFestivo.tsx). */
+.efecto-festivo {
+  position: fixed;
+  inset: 0;
+  z-index: 30; /* bajo el header móvil (40) y los modales (50) */
+  pointer-events: none;
+  overflow: hidden;
+}
+.efecto-festivo span {
+  position: absolute;
+  top: -8%;
+  line-height: 1;
+  will-change: transform, opacity;
+  animation: caer-festivo linear infinite;
+}
+@keyframes caer-festivo {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.9; }
+  90% { opacity: 0.9; }
+  100% { transform: translateY(110vh) rotate(300deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .efecto-festivo { display: none; }
+}

@@ -6,7 +6,9 @@ import { useBarberia } from '@/lib/useBarberia';
 import { abiertoAhora, hoyLima, isoDow } from '@/lib/agenda';
 import type { Barbero } from '@/lib/tipos';
 import { ESTADOS, soles } from '@/lib/tipos';
+import { temaActivo } from '@/lib/festivo';
 import Reserva, { leerBorrador } from './Reserva';
+import EfectoFestivo from './EfectoFestivo';
 import { Aviso, Cargando, Hoja } from './ui';
 
 // Three.js pesa: se baja aparte, sin frenar el primer pintado de la página.
@@ -37,14 +39,22 @@ export default function Inicio() {
   const enCola = activos.reduce((n, b) => n + b.cola, 0);
   const abierto = abiertoAhora(barberia.horario);
   const pisoDe = (b: Barbero) => pisos.find((p) => p.id === sillas.find((s) => s.barbero_id === b.id)?.piso_id);
+  const festivo = temaActivo(barberia.tema_festivo);
 
   return (
     <div className="grid gap-6">
+      <EfectoFestivo tema={festivo} />
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl hero-gradient p-6 sm:p-8">
         <div className="hero-texture absolute inset-0 pointer-events-none" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
+            {festivo && (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-2 text-xs font-semibold text-white"
+                style={{ background: `${festivo.color}26`, border: `1px solid ${festivo.color}66`, color: festivo.color }}>
+                {festivo.saludo}
+              </span>
+            )}
             <h1 className="titulo text-3xl sm:text-4xl drop-shadow-lg">{barberia.nombre}</h1>
             <p className="text-sm text-base-300 mt-2 flex items-center gap-2 flex-wrap">
               <span className={`inline-flex items-center gap-1.5 ${enVivo ? 'text-red-400' : 'text-base-400'}`}>
@@ -77,7 +87,7 @@ export default function Inicio() {
       )}
 
       <Suspense fallback={<div className="h-[70vh] min-h-[420px] rounded-3xl neu-inset grid place-items-center"><Cargando texto="Montando el local en 3D…" /></div>}>
-        <Barberia3D sillas={delPiso} barberos={barberos} seleccionId={fichaId} onSelect={(b) => setFichaId(b.id)} alto="h-[70vh] min-h-[420px]" />
+        <Barberia3D sillas={delPiso} barberos={barberos} seleccionId={fichaId} onSelect={(b) => setFichaId(b.id)} tema={festivo} alto="h-[70vh] min-h-[420px]" />
       </Suspense>
       <p className="text-xs text-base-400 -mt-4">Toca una silla para ver al barbero y reservar · arrastra para girar · pellizca para acercar.</p>
 

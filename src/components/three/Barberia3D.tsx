@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { Barbero, Silla } from '@/lib/tipos';
 import { ESTADOS } from '@/lib/tipos';
+import type { DefTema } from '@/lib/festivo';
 
 // Rejilla compartida con el editor de pisos del admin: (x, z) en celdas.
 export const COLS = 10;
@@ -204,6 +205,29 @@ function Pelos() {
   );
 }
 
+/** Partículas festivas cayendo por todo el local (nieve, brasas, pétalos…). */
+function Festivo3D({ color }: { color: string }) {
+  const N = 90;
+  const W = COLS * CELDA, D = FILAS * CELDA;
+  const ref = useRef<THREE.Points>(null!);
+  const pos = useMemo(() => {
+    const a = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) { a[i * 3] = (Math.random() - 0.5) * W; a[i * 3 + 1] = Math.random() * 5.5; a[i * 3 + 2] = (Math.random() - 0.5) * D; }
+    return a;
+  }, []);
+  useFrame((_, dt) => {
+    const p = ref.current.geometry.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < N; i++) { let y = p.getY(i) - dt * (0.35 + (i % 5) * 0.12); if (y < 0.05) y = 5.5; p.setY(i, y); }
+    p.needsUpdate = true;
+  });
+  return (
+    <points ref={ref}>
+      <bufferGeometry><bufferAttribute attach="attributes-position" args={[pos, 3]} /></bufferGeometry>
+      <pointsMaterial size={0.13} color={color} transparent opacity={0.9} sizeAttenuation />
+    </points>
+  );
+}
+
 /** Anillo de estado en el suelo: verde respirando, rojo/ámbar cortando, azul en descanso. */
 function Anillo({ color, pulso }: { color: string; pulso: boolean }) {
   const mat = useRef<THREE.MeshStandardMaterial>(null!);
@@ -304,8 +328,8 @@ function Puesto({ silla, barbero, seleccionado, onSelect }: {
   );
 }
 
-export default function Barberia3D({ sillas, barberos, seleccionId, onSelect, alto = 'h-[58vh] min-h-[360px]' }: {
-  sillas: Silla[]; barberos: Barbero[]; seleccionId?: string | null; onSelect?: (b: Barbero) => void; alto?: string;
+export default function Barberia3D({ sillas, barberos, seleccionId, onSelect, tema = null, alto = 'h-[58vh] min-h-[360px]' }: {
+  sillas: Silla[]; barberos: Barbero[]; seleccionId?: string | null; onSelect?: (b: Barbero) => void; tema?: DefTema | null; alto?: string;
 }) {
   const [oscuro, setOscuro] = useState(true);
   useEffect(() => {
@@ -333,6 +357,7 @@ export default function Barberia3D({ sillas, barberos, seleccionId, onSelect, al
           <Puesto key={s.id} silla={s} barbero={s.barbero_id ? porId.get(s.barbero_id) ?? null : null}
             seleccionado={!!s.barbero_id && s.barbero_id === seleccionId} onSelect={onSelect} />
         ))}
+        {tema && <Festivo3D color={tema.color} />}
         <Proyector sillas={sillas} etiquetas={etiquetas} />
         <ContactShadows position={[0, 0.01, 0]} opacity={0.35} scale={30} blur={2.5} far={4} />
         <OrbitControls makeDefault enablePan={false} minZoom={20} maxZoom={120}

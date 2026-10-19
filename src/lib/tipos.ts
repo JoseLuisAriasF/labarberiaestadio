@@ -10,6 +10,7 @@ export interface Barberia {
   comision_pct: number; alquiler_mensual: number;
   yape_numero?: string | null; plin_numero?: string | null; titular_pago?: string | null; qr_pago_url?: string | null;
   plan: 'TRIAL' | 'ACTIVO' | 'SUSPENDIDO'; trial_ends_at: string; owner_id?: string | null;
+  tema_festivo?: string | null; // 'auto' | 'ninguno' | id de tema (ver lib/festivo.ts)
 }
 export interface Piso { id: string; barberia_id: string; numero_piso: number; nombre?: string | null }
 export interface Silla { id: string; barberia_id: string; piso_id: string; posicion_x: number; posicion_z: number; rotacion: number; barbero_id: string | null }

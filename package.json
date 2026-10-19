@@ -7,7 +7,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "test": "node --experimental-strip-types src/lib/agenda.test.ts",
+    "test": "node --experimental-strip-types src/lib/agenda.test.ts && node --experimental-strip-types src/lib/festivo.test.ts",
     "deploy": "astro build && wrangler pages deploy dist --project-name labarberiaestadio"
   },
   "dependencies": {

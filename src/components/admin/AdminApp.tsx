@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, Gift, LayoutGrid, LogOut, MapPin, Menu, Package, Scissors, ShieldCheck, Users, Wallet, X } from 'lucide-react';
+import { CalendarDays, Gift, LayoutGrid, LogOut, MapPin, Menu, Package, PartyPopper, Scissors, ShieldCheck, Users, Wallet, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useBarberia } from '@/lib/useBarberia';
 import type { Premio, Producto, Servicio } from '@/lib/tipos';
@@ -12,6 +12,7 @@ import Equipo from './Equipo';
 import Finanzas from './Finanzas';
 import Local from './Local';
 import Pisos from './Pisos';
+import Festivos from './Festivos';
 
 const TABS = [
   { id: 'agenda', t: 'Citas', I: CalendarDays },
@@ -23,6 +24,7 @@ const TABS = [
   { id: 'productos', t: 'Productos', I: Package },
   { id: 'finanzas', t: 'Finanzas', I: Wallet },
   { id: 'local', t: 'Local', I: MapPin },
+  { id: 'festivos', t: 'Festivos', I: PartyPopper },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
@@ -147,6 +149,7 @@ export default function AdminApp() {
           )}
           {tab === 'finanzas' && <Finanzas datos={datos} recargar={recargar} />}
           {tab === 'local' && <Local barberia={barberia} recargar={recargar} />}
+          {tab === 'festivos' && <Festivos datos={datos} recargar={recargar} />}
         </div>
       </div>
     </div>
