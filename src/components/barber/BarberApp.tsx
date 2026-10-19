@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { CalendarDays, Clock, User, Users } from 'lucide-react';
 import { msg, subirImagen, suscribirPush, supabase } from '@/lib/supabase';
 import { useBarberia } from '@/lib/useBarberia';
 import type { Barbero, EstadoBarbero, Horario } from '@/lib/tipos';
@@ -47,8 +48,11 @@ export default function BarberApp() {
         <button type="button" onClick={() => iniciarGuia('barbero')} className="btn !py-1.5 text-xs">¿Cómo uso la app?</button>
       </div>
       <nav aria-label="Secciones" className="neu-inset rounded-2xl p-1 grid grid-cols-4 gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
-        {([['jornada', 'Jornada'], ['agenda', 'Citas'], ['clientes', 'Clientes'], ['perfil', 'Mi perfil']] as const).map(([id, t]) => (
-          <button key={id} onClick={() => setTab(id)} data-guia={`tab-${id}`} aria-pressed={tab === id} className="py-2 rounded-xl aria-pressed:neu-sm aria-pressed:text-acento-500">{t}</button>
+        {([['jornada', 'Jornada', Clock], ['agenda', 'Citas', CalendarDays], ['clientes', 'Clientes', Users], ['perfil', 'Mi perfil', User]] as const).map(([id, t, I]) => (
+          <button key={id} onClick={() => setTab(id)} data-guia={`tab-${id}`} aria-pressed={tab === id}
+            className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
+            <I className="size-5" />{t}
+          </button>
         ))}
       </nav>
       {tab === 'jornada' && <Estado yo={vivo} />}
