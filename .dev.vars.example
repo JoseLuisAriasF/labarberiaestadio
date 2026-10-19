@@ -1,0 +1,5 @@
+# Secretos de las Pages Functions (wrangler pages secret put …). NUNCA al cliente.
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_KEY=sb_secret_xxx
+TURNSTILE_SECRET=
+DEPLOY_HOOK_URL=

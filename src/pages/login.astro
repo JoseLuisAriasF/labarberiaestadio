@@ -1,0 +1,49 @@
+---
+import Base from '@/layouts/Base.astro';
+---
+<Base titulo="Acceso a barbería" descripcion="Ingreso del personal." privado>
+  <div class="max-w-sm mx-auto neu rounded-3xl p-6 mt-6">
+    <h1 class="titulo text-xl">Acceso a barbería</h1>
+    <p class="text-sm text-base-500 mt-1 mb-5">Ingresa con los datos asignados a tu barbería.</p>
+    <form id="f" class="grid gap-3">
+      <label><span class="etiqueta">Código de barbería</span><input name="codigo" required pattern="[Bb][0-9]+" placeholder="B1" autocomplete="organization" class="campo uppercase" /></label>
+      <label><span class="etiqueta">Usuario</span><input name="usuario" required autocomplete="username" autocapitalize="none" class="campo" /></label>
+      <label><span class="etiqueta">Clave</span><input name="clave" type="password" required autocomplete="current-password" class="campo" /></label>
+      <p id="err" role="alert" class="text-sm text-red-500 min-h-5"></p>
+      <button class="btn-acento">Ingresar</button>
+    </form>
+    <p class="text-xs text-base-500 mt-5 text-center">¿Tienes una barbería? <a href="/registro" class="text-acento-500">Créala gratis (3 meses de prueba)</a></p>
+  </div>
+</Base>
+
+<script>
+  import { emailStaff, msg, supabase } from '@/lib/supabase';
+  const f = document.getElementById('f') as HTMLFormElement;
+  const err = document.getElementById('err')!;
+  const codigo = new URLSearchParams(location.search).get('codigo');
+  if (codigo) (f.elements.namedItem('codigo') as HTMLInputElement).value = codigo;
+
+  async function destino() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: b } = await supabase.from('barberias').select('id').eq('owner_id', user.id).maybeSingle();
+    if (b) return location.replace('/admin');
+    const { data: br } = await supabase.from('barberos').select('id').eq('usuario_id', user.id).maybeSingle();
+    if (br) return location.replace('/barber');
+  }
+  destino();
+
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const d = new FormData(f);
+    err.textContent = '';
+    const btn = f.querySelector('button')!;
+    btn.disabled = true;
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailStaff(String(d.get('codigo')), String(d.get('usuario'))), password: String(d.get('clave')),
+    });
+    btn.disabled = false;
+    if (error) { err.textContent = /invalid/i.test(error.message) ? 'Código, usuario o clave incorrectos' : msg(error); return; }
+    destino();
+  });
+</script>

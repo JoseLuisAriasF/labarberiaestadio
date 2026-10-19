@@ -1,0 +1,32 @@
+---
+import Base from '@/layouts/Base.astro';
+import { datosSitio } from '@/lib/sitio';
+const { b } = await datosSitio();
+const hoy = new Date().toLocaleDateString('es-PE', { dateStyle: 'long' });
+---
+<Base titulo={`Condiciones del Servicio · ${b.nombre}`} descripcion={`Condiciones de uso de la plataforma de reservas de ${b.nombre}.`}>
+  <article class="max-w-3xl mx-auto grid gap-4 text-sm leading-relaxed">
+    <h1 class="titulo text-2xl">Condiciones del Servicio</h1>
+    <p class="text-base-500">Última actualización: {hoy}</p>
+    <p>Al usar la plataforma de reservas de <b>{b.nombre}</b> aceptas estas condiciones.</p>
+
+    <h2 class="titulo text-lg mt-3">Reservas</h2>
+    <p>Las citas están sujetas a disponibilidad. Para reservas de clientes nuevos puede requerirse un pago adelantado por Yape o Plin para confirmar. Puedes cancelar hasta 1 hora antes de tu cita.</p>
+
+    <h2 class="titulo text-lg mt-3">Uso correcto</h2>
+    <p>Te comprometes a dar información veraz (incluido tu DNI) y a no realizar reservas falsas. Las cuentas con uso indebido pueden ser suspendidas.</p>
+
+    <h2 class="titulo text-lg mt-3">Pagos</h2>
+    <p>Los pagos adelantados se validan contra el comprobante que envías. Los reembolsos, de aplicar, se coordinan directamente con el local.</p>
+
+    <h2 class="titulo text-lg mt-3">Programa de lealtad</h2>
+    <p>Los premios y descuentos acumulados se rigen por las reglas vigentes de la barbería y pueden cambiar. Los vouchers no son canjeables por dinero.</p>
+
+    <h2 class="titulo text-lg mt-3">Responsabilidad</h2>
+    <p>El servicio se ofrece "tal cual". Hacemos lo posible por mantenerlo disponible, pero no garantizamos que esté libre de interrupciones.</p>
+
+    <h2 class="titulo text-lg mt-3">Contacto</h2>
+    <p>{b.nombre}{b.email_contacto && <> · {b.email_contacto}</>}.</p>
+    <p class="mt-4"><a class="text-acento-500" href="/privacidad">Ver también la Política de Privacidad</a></p>
+  </article>
+</Base>

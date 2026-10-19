@@ -1,0 +1,160 @@
+---
+import Base from '@/layouts/Base.astro';
+import { datosSitio } from '@/lib/sitio';
+import { DIAS } from '@/lib/tipos';
+const { b } = await datosSitio();
+const lugar = [b.direccion, b.distrito, b.ciudad].filter(Boolean).join(', ');
+---
+
+<Base titulo={`Cómo llegar a ${b.nombre}${b.distrito ? ` en ${b.distrito}` : ''} · Mapa y horarios`}
+  descripcion={`Dirección exacta${lugar ? ` (${lugar})` : ''}, ruta en vivo desde tu ubicación, pisos del local, fotos y horario de ${b.nombre}.`}>
+  <div class="grid gap-5 lg:grid-cols-[1fr_22rem]">
+    <section class="grid gap-3">
+      <h1 class="titulo text-2xl">📍 Cómo llegar</h1>
+      <div class="flex flex-wrap gap-2">
+        <button id="gps" class="btn-acento">📡 Usar mi ubicación</button>
+        <div class="neu-inset rounded-xl p-1 flex gap-1" role="group" aria-label="Modo de viaje">
+          <button data-modo="car" aria-pressed="true" class="px-3 py-1.5 rounded-lg text-sm aria-pressed:neu-sm aria-pressed:text-acento-500">🚗 Auto</button>
+          <button data-modo="foot" aria-pressed="false" class="px-3 py-1.5 rounded-lg text-sm aria-pressed:neu-sm aria-pressed:text-acento-500">🚶 A pie</button>
+        </div>
+        <label class="btn cursor-pointer"><input id="vivo" type="checkbox" class="accent-acento-500" /> Seguir en vivo</label>
+      </div>
+      <form id="buscar" class="flex gap-2" role="search">
+        <input id="q" class="campo" placeholder="…o escribe desde dónde vienes (ej. Estadio Nacional)" autocomplete="street-address" />
+        <button class="btn">Buscar</button>
+      </form>
+      <div id="mapa" class="h-[55vh] min-h-[340px] rounded-2xl neu-inset overflow-hidden z-0" aria-label="Mapa con la ruta al local"></div>
+      <p id="resumen" class="text-sm min-h-5" aria-live="polite"></p>
+      <ol id="pasos" class="text-sm grid gap-1.5"></ol>
+    </section>
+
+    <aside class="grid gap-4 content-start">
+      <div class="neu rounded-2xl p-4 grid gap-2">
+        <p class="titulo" id="nombre">{b.nombre}</p>
+        <p class="text-sm" id="direccion">{lugar || 'Dirección por confirmar'}</p>
+        <p class="text-xs text-base-500" id="referencia">{b.referencia}</p>
+        <p class="text-xs text-base-500" id="pisos"></p>
+        <div class="grid grid-cols-2 gap-2 mt-1">
+          <a id="gmaps" target="_blank" rel="noopener" class="btn text-xs">Google Maps</a>
+          <a id="waze" target="_blank" rel="noopener" class="btn text-xs">Waze</a>
+        </div>
+        {b.whatsapp && <a href={`https://wa.me/${b.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener" class="btn text-xs">💬 WhatsApp</a>}
+      </div>
+      <div class="neu rounded-2xl p-4">
+        <p class="etiqueta">Horario</p>
+        <ul class="text-sm grid gap-0.5" id="horario">
+          {Object.entries(b.horario || {}).map(([d, f]) => (
+            <li class="flex justify-between"><span>{DIAS[+d]}</span><span class="tabular-nums">{f ? `${f[0]} – ${f[1]}` : 'Cerrado'}</span></li>
+          ))}
+        </ul>
+      </div>
+      <div id="fotos" class="grid grid-cols-2 gap-2">
+        {(b.fotos || []).map((f: string) => <img src={f} alt={`Local de ${b.nombre}`} class="rounded-xl aspect-square object-cover" loading="lazy" />)}
+      </div>
+    </aside>
+  </div>
+</Base>
+
+<script>
+  // Mismo "Cómo llegar" que Papichulo: Leaflet + OSM, el local lo fija el dueño
+  // en /admin (marcador arrastrable) y aquí se traza la ruta real desde el GPS.
+  import L from 'leaflet';
+  import 'leaflet/dist/leaflet.css';
+  import { codigoActual, supabase } from '@/lib/supabase';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const { data: b } = await supabase.from('barberias').select('*').eq('codigo', codigoActual()).maybeSingle();
+  const local: [number, number] = [b?.lat ?? -12.0675, b?.lng ?? -77.0337]; // por defecto: Estadio Nacional, Lima
+
+  if (b) {
+    $('nombre').textContent = b.nombre;
+    $('direccion').textContent = [b.direccion, b.distrito, b.ciudad].filter(Boolean).join(', ') || 'Dirección por confirmar';
+    $('referencia').textContent = b.referencia || '';
+    const { data: pisos } = await supabase.from('pisos').select('numero_piso, nombre').eq('barberia_id', b.id).order('numero_piso');
+    if (pisos?.length) $('pisos').textContent = `🏢 ${pisos.length} piso(s): ${pisos.map((p) => p.nombre || `Piso ${p.numero_piso}`).join(' · ')}`;
+  }
+  ($('gmaps') as HTMLAnchorElement).href = `https://www.google.com/maps/dir/?api=1&destination=${local[0]},${local[1]}`;
+  ($('waze') as HTMLAnchorElement).href = `https://waze.com/ul?ll=${local[0]},${local[1]}&navigate=yes`;
+
+  const icono = (emoji: string) => L.divIcon({ html: `<div style="font-size:28px;line-height:1;filter:drop-shadow(0 2px 3px #0008)">${emoji}</div>`, className: '', iconSize: [30, 30], iconAnchor: [15, 28] });
+  const mapa = L.map('mapa', { zoomControl: true }).setView(local, 16);
+  const calles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapa);
+  const satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Esri' });
+  L.control.layers({ Calles: calles, Satélite: satelite }, undefined, { position: 'topright' }).addTo(mapa);
+  L.marker(local, { icon: icono('💈') }).addTo(mapa).bindPopup(`<b>${b?.nombre ?? 'Barbería'}</b>`).openPopup();
+
+  let origen: [number, number] | null = null;
+  let modo: 'car' | 'foot' = 'car';
+  let marcador: L.Marker | null = null;
+  let linea: L.GeoJSON | null = null;
+  let vigia: number | null = null;
+  let ultimaRuta = 0;
+
+  const GIROS: Record<string, string> = { left: 'a la izquierda', right: 'a la derecha', 'slight left': 'levemente a la izquierda', 'slight right': 'levemente a la derecha', 'sharp left': 'cerrado a la izquierda', 'sharp right': 'cerrado a la derecha', straight: 'recto', uturn: 'en U' };
+  const paso = (s: any) => {
+    const via = s.name ? ` por ${s.name}` : '';
+    const g = GIROS[s.maneuver.modifier] || '';
+    switch (s.maneuver.type) {
+      case 'depart': return `Sal${via}`;
+      case 'arrive': return '¡Llegaste! 💈';
+      case 'roundabout': case 'rotary': return `En la rotonda toma la salida ${s.maneuver.exit ?? ''}${via}`;
+      default: return `Gira ${g}${via}`.replace('Gira recto', 'Sigue recto');
+    }
+  };
+
+  async function trazar(desde: [number, number], encuadrar = true) {
+    origen = desde;
+    if (marcador) marcador.setLatLng(desde); else marcador = L.marker(desde, { icon: icono('🧍') }).addTo(mapa).bindPopup('Tú');
+    $('resumen').textContent = 'Calculando ruta…';
+    try {
+      const url = `https://routing.openstreetmap.de/routed-${modo}/route/v1/driving/${desde[1]},${desde[0]};${local[1]},${local[0]}?overview=full&geometries=geojson&steps=true`;
+      const r = await fetch(url).then((x) => x.json());
+      const ruta = r.routes?.[0];
+      if (!ruta) throw 0;
+      linea?.remove();
+      linea = L.geoJSON(ruta.geometry, { style: { color: '#6d7ff0', weight: 6, opacity: 0.9 } }).addTo(mapa);
+      if (encuadrar) mapa.fitBounds(linea.getBounds(), { padding: [30, 30] });
+      const km = ruta.distance / 1000, min = Math.round(ruta.duration / 60);
+      $('resumen').innerHTML = `<b>${km < 1 ? Math.round(ruta.distance) + ' m' : km.toFixed(1) + ' km'}</b> · ${min} min ${modo === 'car' ? 'en auto 🚗' : 'caminando 🚶'}`;
+      const pasos = ruta.legs[0].steps.filter((s: any) => s.distance > 0 || s.maneuver.type === 'arrive');
+      $('pasos').innerHTML = pasos.map((s: any) => `<li class="neu-sm rounded-xl px-3 py-2 flex justify-between gap-3"><span>${paso(s).replace(/</g, '&lt;')}</span><span class="text-base-400 tabular-nums">${s.distance ? Math.round(s.distance) + ' m' : ''}</span></li>`).join('');
+    } catch {
+      $('resumen').textContent = 'No pudimos calcular la ruta. Usa Google Maps o Waze.';
+    }
+  }
+
+  $('gps').addEventListener('click', () => {
+    if (!navigator.geolocation) return alert('Tu navegador no permite ubicación. Toca en el mapa desde dónde sales.');
+    $('resumen').textContent = '📡 Ubicando…';
+    navigator.geolocation.getCurrentPosition(
+      (p) => trazar([p.coords.latitude, p.coords.longitude]),
+      () => { $('resumen').textContent = 'Activa el permiso de ubicación, o toca en el mapa desde dónde sales.'; },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  });
+  mapa.on('click', (e: L.LeafletMouseEvent) => trazar([e.latlng.lat, e.latlng.lng]));
+  document.querySelectorAll<HTMLButtonElement>('[data-modo]').forEach((btn) => btn.addEventListener('click', () => {
+    modo = btn.dataset.modo as 'car' | 'foot';
+    document.querySelectorAll('[data-modo]').forEach((x) => x.setAttribute('aria-pressed', String(x === btn)));
+    if (origen) trazar(origen);
+  }));
+
+  // En vivo: mueve tu marcador y recalcula cada 30 s mientras caminas/manejas.
+  $('vivo').addEventListener('change', (e) => {
+    if (!(e.target as HTMLInputElement).checked) { vigia != null && navigator.geolocation.clearWatch(vigia); vigia = null; return; }
+    vigia = navigator.geolocation.watchPosition((p) => {
+      const ll: [number, number] = [p.coords.latitude, p.coords.longitude];
+      marcador?.setLatLng(ll);
+      mapa.panTo(ll);
+      if (Date.now() - ultimaRuta > 30000) { ultimaRuta = Date.now(); trazar(ll, false); }
+    }, undefined, { enableHighAccuracy: true });
+  });
+
+  $('buscar').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = ($('q') as HTMLInputElement).value.trim();
+    if (!q) return;
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&q=${encodeURIComponent(q)}`).then((x) => x.json()).catch(() => []);
+    if (r[0]) trazar([+r[0].lat, +r[0].lon]); else $('resumen').textContent = 'No encontramos esa dirección.';
+  });
+</script>

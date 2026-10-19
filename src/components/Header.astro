@@ -1,0 +1,83 @@
+---
+import ThemeToggle from './ThemeToggle.astro';
+interface Props { privado?: boolean; nombre: string }
+const { privado = false, nombre } = Astro.props;
+const ruta = Astro.url.pathname.replace(/\/$/, '') || '/';
+const enlaces = [
+  { href: '/', texto: 'Cita en vivo', emoji: '🏠', icono: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
+  { href: '/productos', texto: 'Productos', emoji: '💈', icono: 'M6 7h12l-1 13H7L6 7Zm3 0V5a3 3 0 0 1 6 0v2' },
+  { href: '/como-llegar', texto: 'Cómo llegar', emoji: '📍', icono: 'M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Zm0-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z' },
+];
+---
+
+<header class="sticky top-0 z-40 backdrop-blur-md bg-[var(--superficie)]/80 border-b border-base-300/40 dark:border-base-700/40">
+  <div class="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center gap-2">
+    <a href="/" data-tenant class="flex items-center gap-2 shrink-0 titulo">
+      <span class="neu-sm grid place-items-center size-9 rounded-xl text-lg" aria-hidden="true">💈</span>
+      <span class="hidden sm:inline">{nombre}</span>
+    </a>
+
+    {!privado && (
+      <nav class="hidden md:flex items-center gap-1 ml-3" aria-label="Principal">
+        {enlaces.map((e) => (
+          <a href={e.href} data-tenant aria-current={ruta === e.href ? 'page' : undefined}
+             class="neu-press rounded-xl px-3 py-2 text-sm aria-[current=page]:neu-inset aria-[current=page]:text-acento-500 hover:text-acento-500">
+            <span aria-hidden="true">{e.emoji}</span> {e.texto}
+          </a>
+        ))}
+      </nav>
+    )}
+
+    <div class="ml-auto flex items-center gap-2">
+      <div class="hidden sm:block"><ThemeToggle /></div>
+      {!privado && (
+        <a href="/perfil" data-tenant class="btn !px-3" aria-label="Mi perfil">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="size-4"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <span class="hidden sm:inline">Mi perfil</span>
+        </a>
+      )}
+      {privado && <button data-salir class="btn !px-3">Salir</button>}
+      {!privado && (
+        <button data-menu-abrir aria-label="Menú" aria-expanded="false" class="md:hidden btn !px-3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" class="size-4"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </button>
+      )}
+    </div>
+  </div>
+
+  {!privado && (
+    <div data-menu-panel hidden class="md:hidden border-t border-base-300/40 dark:border-base-700/40">
+      <nav class="max-w-6xl mx-auto px-3 py-3 grid gap-1.5">
+        {enlaces.map((e) => (
+          <a href={e.href} data-tenant class="neu-sm neu-press rounded-xl px-3 py-2.5 text-sm flex items-center gap-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" class="size-4 text-acento-500 shrink-0"><path d={e.icono} /></svg>
+            {e.texto}
+          </a>
+        ))}
+        <div class="flex items-center justify-between pt-2 mt-1 border-t border-base-300/40 dark:border-base-700/40">
+          <ThemeToggle />
+          <a href="/login" class="text-xs text-base-500 hover:text-acento-500">Acceso staff</a>
+        </div>
+      </nav>
+    </div>
+  )}
+</header>
+
+<script>
+  import { supabase } from '@/lib/supabase';
+  // Conserva ?b=B2 al navegar entre secciones de otra barbería.
+  const b = new URLSearchParams(location.search).get('b');
+  if (b && /^B\d+$/i.test(b)) document.querySelectorAll<HTMLAnchorElement>('a[data-tenant]').forEach((a) => {
+    const u = new URL(a.href); u.searchParams.set('b', b); a.href = u.toString();
+  });
+  const btn = document.querySelector<HTMLButtonElement>('[data-menu-abrir]');
+  const panel = document.querySelector<HTMLElement>('[data-menu-panel]');
+  btn?.addEventListener('click', () => {
+    panel!.hidden = !panel!.hidden;
+    btn.setAttribute('aria-expanded', String(!panel!.hidden));
+  });
+  document.querySelector('[data-salir]')?.addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    location.href = '/login';
+  });
+</script>

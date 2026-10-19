@@ -1,0 +1,97 @@
+---
+import '@/styles/global.css';
+import Header from '@/components/Header.astro';
+import Footer from '@/components/Footer.astro';
+import { datosSitio, jsonLdBarberia } from '@/lib/sitio';
+
+interface Props {
+  titulo: string;
+  descripcion: string;
+  imagen?: string;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  /** Paneles privados (/admin, /barber, /perfil): fuera del índice y sin navbar público. */
+  privado?: boolean;
+  anchoCompleto?: boolean;
+}
+const { titulo, descripcion, imagen = '/og.png', jsonLd, privado = false, anchoCompleto = false } = Astro.props;
+const { b, servicios } = await datosSitio();
+const site = Astro.site!;
+const canonical = new URL(Astro.url.pathname, site).toString();
+const imagenAbs = new URL(imagen, site).toString();
+const lugar = [b.distrito, b.ciudad || 'Lima'].filter(Boolean).join(', ');
+const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN : '';
+---
+
+<!doctype html>
+<html lang="es-PE" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{titulo}</title>
+    <meta name="description" content={descripcion} />
+    {privado ? <meta name="robots" content="noindex, nofollow" /> : <meta name="robots" content="index, follow, max-image-preview:large" />}
+    <link rel="canonical" href={canonical} />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icono-192.png" />
+    <meta name="theme-color" content="#171b24" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
+    {/* GEO local: región, ciudad y coordenadas del local (Bing y buscadores locales los leen). */}
+    <meta name="geo.region" content="PE-LIM" />
+    <meta name="geo.placename" content={lugar} />
+    {b.lat != null && b.lng != null && (
+      <>
+        <meta name="geo.position" content={`${b.lat};${b.lng}`} />
+        <meta name="ICBM" content={`${b.lat}, ${b.lng}`} />
+        <meta property="place:location:latitude" content={String(b.lat)} />
+        <meta property="place:location:longitude" content={String(b.lng)} />
+      </>
+    )}
+
+    <meta property="og:type" content="business.business" />
+    <meta property="og:site_name" content={b.nombre} />
+    <meta property="og:title" content={titulo} />
+    <meta property="og:description" content={descripcion} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={imagenAbs} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="es_PE" />
+    {b.direccion && <meta property="business:contact_data:street_address" content={b.direccion} />}
+    <meta property="business:contact_data:locality" content={b.ciudad || 'Lima'} />
+    <meta property="business:contact_data:country_name" content="Perú" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={titulo} />
+    <meta name="twitter:description" content={descripcion} />
+    <meta name="twitter:image" content={imagenAbs} />
+
+    {!privado && <script type="application/ld+json" set:html={JSON.stringify(jsonLdBarberia(b, site, servicios))} />}
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+
+    {/* Tema antes de pintar: sin destello claro→oscuro. */}
+    <script is:inline>
+      (function () {
+        var t = localStorage.getItem('be:tema') || 'dark';
+        var d = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', d);
+        document.documentElement.dataset.tema = t;
+      })();
+    </script>
+    {TOKEN_ANALYTICS && (
+      <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: TOKEN_ANALYTICS })}></script>
+    )}
+  </head>
+  <body class="min-h-dvh flex flex-col">
+    <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 btn z-50">Saltar al contenido</a>
+    <Header privado={privado} nombre={b.nombre} />
+    <main id="contenido" class:list={['flex-1 w-full mx-auto px-4 sm:px-6 py-6', anchoCompleto ? 'max-w-7xl' : 'max-w-6xl']}>
+      <slot />
+    </main>
+    {!privado && <Footer b={b} />}
+    <script>
+      if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('/sw.js');
+    </script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+---
+import Base from '@/layouts/Base.astro';
+import Perfil from '@/components/Perfil';
+---
+<Base titulo="Mi perfil · citas y tarjeta de lealtad" descripcion="Tus citas, historial de cortes y cupones." privado>
+  <Perfil client:only="react" />
+</Base>

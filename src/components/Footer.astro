@@ -1,0 +1,32 @@
+---
+import type { Barberia } from '@/lib/tipos';
+import { DIAS } from '@/lib/tipos';
+const { b } = Astro.props as { b: Barberia };
+const anio = new Date().getFullYear();
+---
+
+<footer class="border-t border-base-300/40 dark:border-base-700/40 mt-12">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-sm text-base-500 grid gap-6 sm:grid-cols-3">
+    <div>
+      <p class="titulo">💈 {b.nombre}</p>
+      {b.direccion && <p class="mt-1">{b.direccion}{b.distrito && `, ${b.distrito}`}</p>}
+      {b.telefono && <p class="mt-1"><a class="hover:text-acento-500" href={`tel:${b.telefono}`}>{b.telefono}</a></p>}
+    </div>
+    <ul class="text-xs space-y-0.5">
+      {Object.entries(b.horario || {}).map(([d, f]) => (
+        <li class="flex justify-between max-w-56"><span>{DIAS[+d]}</span><span>{f ? `${f[0]} – ${f[1]}` : 'Cerrado'}</span></li>
+      ))}
+    </ul>
+    <nav class="flex flex-col gap-1.5 sm:items-end">
+      <a class="hover:text-acento-500" href="/como-llegar">Cómo llegar</a>
+      <a class="hover:text-acento-500" href="/productos">Productos</a>
+      <a class="hover:text-acento-500" href="/login">Acceso staff</a>
+      <a class="hover:text-acento-500" href="/registro">¿Tienes una barbería? Pruébalo gratis 3 meses</a>
+      <span class="flex gap-3 text-xs">
+        <a class="hover:text-acento-500" href="/privacidad">Privacidad</a>
+        <a class="hover:text-acento-500" href="/terminos">Términos</a>
+      </span>
+      <p class="text-xs text-base-400 mt-2">© {anio} {b.nombre}</p>
+    </nav>
+  </div>
+</footer>

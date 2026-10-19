@@ -1,0 +1,64 @@
+---
+import Base from '@/layouts/Base.astro';
+const SITE_KEY = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
+---
+<Base titulo="Crea tu barbería gratis · 3 meses de prueba" descripcion="Software para barberías: reservas en tiempo real, vista 3D, Yape/Plin, comisiones y tarjeta de lealtad. 3 meses gratis.">
+  <div class="grid lg:grid-cols-2 gap-8 items-start max-w-5xl mx-auto">
+    <section class="grid gap-4">
+      <h1 class="titulo text-3xl">Tu barbería, en vivo y en 3D</h1>
+      <p class="text-base-500">Tus clientes ven qué silla está libre, reservan y pagan con Yape o Plin. Tú controlas agenda, comisiones o alquiler de sillas y la lealtad de tus clientes.</p>
+      <ul class="grid gap-2 text-sm">
+        <li class="neu-sm rounded-xl px-4 py-3">🎁 <b>3 meses gratis</b>, sin tarjeta</li>
+        <li class="neu-sm rounded-xl px-4 py-3">🏢 Pisos y sillas en 3D, barberos cortando en tiempo real</li>
+        <li class="neu-sm rounded-xl px-4 py-3">🛡️ Anti-trolls: Google + DNI + comprobante de pago</li>
+        <li class="neu-sm rounded-xl px-4 py-3">💸 Recaudación centralizada o alquiler de silla</li>
+        <li class="neu-sm rounded-xl px-4 py-3">🎯 Tarjeta de lealtad: "10 cortes y el siguiente gratis"</li>
+      </ul>
+    </section>
+    <section class="neu rounded-3xl p-6">
+      <form id="f" class="grid gap-3">
+        <h2 class="titulo text-lg">Crear cuenta de dueño</h2>
+        <label><span class="etiqueta">Nombre de la barbería</span><input name="nombre" required minlength="2" maxlength="80" class="campo" /></label>
+        <label><span class="etiqueta">Tu correo (contacto y avisos)</span><input name="email" type="email" required autocomplete="email" class="campo" /></label>
+        <label><span class="etiqueta">Teléfono</span><input name="telefono" type="tel" autocomplete="tel" class="campo" /></label>
+        <label><span class="etiqueta">Usuario master</span><input name="usuario" required pattern="[a-z0-9_]{3,24}" autocapitalize="none" autocomplete="username" placeholder="ej. dueno" class="campo" /></label>
+        <label><span class="etiqueta">Clave (10+ caracteres, letras y números)</span><input name="clave" type="password" required minlength="10" autocomplete="new-password" class="campo" /></label>
+        {SITE_KEY && <div class="cf-turnstile" data-sitekey={SITE_KEY} data-theme="auto"></div>}
+        <p id="err" role="alert" class="text-sm text-red-500 min-h-5"></p>
+        <button class="btn-acento">Crear mi barbería</button>
+      </form>
+      <div id="ok" hidden class="text-center grid gap-3">
+        <p class="text-5xl">🎉</p>
+        <p class="titulo text-lg">¡Listo! Tu código de barbería es</p>
+        <p id="codigo" class="text-4xl font-bold text-acento-500 tracking-widest"></p>
+        <p class="text-sm text-base-500">Guárdalo: tú y tus barberos ingresan con <b>código + usuario + clave</b>. Prueba gratis hasta el <b id="trial"></b>.</p>
+        <a href="/admin" class="btn-acento">Ir a mi panel</a>
+      </div>
+    </section>
+  </div>
+  {SITE_KEY && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
+</Base>
+
+<script>
+  import { emailStaff, supabase } from '@/lib/supabase';
+  const f = document.getElementById('f') as HTMLFormElement;
+  const err = document.getElementById('err')!;
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(f)) as Record<string, string>;
+    err.textContent = '';
+    const btn = f.querySelector('button')!;
+    btn.disabled = true;
+    const r = await fetch('/api/registro', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...d, turnstile: d['cf-turnstile-response'] }),
+    }).then((x) => x.json()).catch(() => ({ error: 'Sin conexión' }));
+    btn.disabled = false;
+    if (r.error) { err.textContent = r.error; (window as any).turnstile?.reset(); return; }
+    await supabase.auth.signInWithPassword({ email: emailStaff(r.codigo, d.usuario), password: d.clave });
+    f.hidden = true;
+    document.getElementById('ok')!.hidden = false;
+    document.getElementById('codigo')!.textContent = r.codigo;
+    document.getElementById('trial')!.textContent = new Date(r.trial_ends_at).toLocaleDateString('es-PE', { dateStyle: 'long' });
+  });
+</script>

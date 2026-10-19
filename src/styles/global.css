@@ -1,0 +1,106 @@
+@import 'tailwindcss';
+@config '../../tailwind.config.mjs';
+
+/* Mismo sistema visual que ManhwaToNovel: grises fríos, acento índigo y
+   superficies neumórficas. Modo oscuro por clase en <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@view-transition {
+  navigation: auto;
+}
+
+@layer base {
+  :root {
+    --superficie: #eef0f4;
+    --sombra-clara: rgba(255, 255, 255, 0.9);
+    --sombra-oscura: rgba(163, 172, 189, 0.45);
+  }
+  .dark {
+    color-scheme: dark;
+    --superficie: #171b24;
+    --sombra-clara: rgba(255, 255, 255, 0.035);
+    --sombra-oscura: rgba(0, 0, 0, 0.55);
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    overflow-x: clip;
+  }
+  body {
+    background: var(--superficie);
+    font-family: theme(fontFamily.sans);
+    color: theme(colors.base.700);
+    -webkit-font-smoothing: antialiased;
+  }
+  .dark body {
+    color: theme(colors.base.300);
+  }
+  ::selection {
+    background: color-mix(in oklab, theme(colors.acento.400) 35%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid theme(colors.acento.500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  /* Un grid sin columnas declaradas desborda en móvil (ver ManhwaToNovel). */
+  :where(.grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  input, select, textarea { min-width: 0; }
+}
+
+/* @utility (no @layer components): así valen con variantes y con @apply. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+@utility neu {
+  background: var(--superficie);
+  border: 1px solid color-mix(in oklab, var(--sombra-oscura) 30%, transparent);
+  box-shadow: theme(boxShadow.neu);
+}
+@utility neu-sm {
+  background: var(--superficie);
+  border: 1px solid color-mix(in oklab, var(--sombra-oscura) 25%, transparent);
+  box-shadow: theme(boxShadow.neu-sm);
+}
+@utility neu-inset {
+  background: var(--superficie);
+  border: 1px solid color-mix(in oklab, var(--sombra-oscura) 20%, transparent);
+  box-shadow: theme(boxShadow.neu-inset);
+}
+@utility neu-press {
+  transition: box-shadow 180ms ease, transform 180ms ease;
+  &:active {
+    box-shadow: theme(boxShadow.neu-inset);
+    transform: translateY(1px);
+  }
+}
+@utility btn {
+  @apply neu-sm neu-press rounded-xl px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none;
+}
+@utility btn-acento {
+  @apply rounded-xl px-4 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer text-white bg-acento-500 hover:bg-acento-600 transition-colors shadow-neu-sm disabled:opacity-50 disabled:pointer-events-none;
+}
+@utility campo {
+  @apply neu-inset rounded-xl px-3 py-2.5 text-sm outline-none w-full;
+}
+@utility etiqueta {
+  @apply block text-xs font-medium text-base-500 mb-1;
+}
+@utility titulo {
+  @apply font-semibold tracking-tight text-base-800 dark:text-base-100;
+}
+@utility chip {
+  @apply neu-inset rounded-full px-2.5 py-0.5 text-[11px] font-medium;
+}
+
+.leaflet-container { font: inherit; background: var(--superficie); }

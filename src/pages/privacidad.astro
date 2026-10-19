@@ -1,0 +1,35 @@
+---
+import Base from '@/layouts/Base.astro';
+import { datosSitio } from '@/lib/sitio';
+const { b } = await datosSitio();
+const hoy = new Date().toLocaleDateString('es-PE', { dateStyle: 'long' });
+---
+<Base titulo={`Política de Privacidad · ${b.nombre}`} descripcion={`Cómo ${b.nombre} trata tus datos personales al reservar citas y usar el inicio de sesión con Google.`}>
+  <article class="prose-barberia max-w-3xl mx-auto grid gap-4 text-sm leading-relaxed">
+    <h1 class="titulo text-2xl">Política de Privacidad</h1>
+    <p class="text-base-500">Última actualización: {hoy}</p>
+    <p>En <b>{b.nombre}</b> respetamos tu privacidad. Esta política explica qué datos recogemos cuando usas nuestra plataforma de reservas y cómo los tratamos.</p>
+
+    <h2 class="titulo text-lg mt-3">Datos que recogemos</h2>
+    <ul class="list-disc pl-5 grid gap-1">
+      <li><b>Inicio de sesión con Google:</b> cuando entras con Google, recibimos tu nombre, correo electrónico y foto de perfil para identificarte. No accedemos a tus contactos, correos ni a ningún otro dato de tu cuenta de Google.</li>
+      <li><b>DNI:</b> lo pedimos una vez para evitar reservas falsas y verificar tu identidad en el local.</li>
+      <li><b>Teléfono (opcional):</b> para coordinar tu cita por WhatsApp.</li>
+      <li><b>Comprobantes de pago (Yape/Plin):</b> la captura que adjuntas se guarda de forma privada y solo la ve el personal que valida tu pago.</li>
+      <li><b>Historial de citas y cortes:</b> para tu tarjeta de lealtad y tu historial.</li>
+    </ul>
+
+    <h2 class="titulo text-lg mt-3">Para qué usamos tus datos</h2>
+    <p>Usamos tus datos únicamente para gestionar tus reservas, validar pagos, prevenir fraudes, operar el programa de lealtad y comunicarnos contigo sobre tus citas. No vendemos ni compartimos tus datos con terceros con fines publicitarios.</p>
+
+    <h2 class="titulo text-lg mt-3">Dónde se guardan</h2>
+    <p>Tus datos se almacenan de forma segura en Supabase (infraestructura con cifrado) y solo son accesibles por ti y por el personal autorizado de la barbería, protegidos por reglas de seguridad a nivel de base de datos.</p>
+
+    <h2 class="titulo text-lg mt-3">Tus derechos</h2>
+    <p>Puedes solicitar acceder, corregir o eliminar tus datos escribiéndonos{b.email_contacto ? <> a <a class="text-acento-500" href={`mailto:${b.email_contacto}`}>{b.email_contacto}</a></> : <> o acercándote al local</>}{b.whatsapp && <> o por <a class="text-acento-500" href={`https://wa.me/${b.whatsapp.replace(/\D/g, '')}`}>WhatsApp</a></>}. También puedes cerrar sesión y dejar de usar el servicio en cualquier momento.</p>
+
+    <h2 class="titulo text-lg mt-3">Contacto</h2>
+    <p>{b.nombre}{b.direccion && <> · {b.direccion}{b.distrito && `, ${b.distrito}`}</>}{b.email_contacto && <> · {b.email_contacto}</>}.</p>
+    <p class="mt-4"><a class="text-acento-500" href="/terminos">Ver también las Condiciones del Servicio</a></p>
+  </article>
+</Base>

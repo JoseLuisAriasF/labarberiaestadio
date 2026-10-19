@@ -1,0 +1,7 @@
+---
+import Base from '@/layouts/Base.astro';
+import BarberApp from '@/components/barber/BarberApp';
+---
+<Base titulo="Panel del barbero" descripcion="Tu jornada en tiempo real." privado>
+  <BarberApp client:only="react" />
+</Base>

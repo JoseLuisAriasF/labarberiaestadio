@@ -1,0 +1,27 @@
+---
+import Base from '@/layouts/Base.astro';
+import Productos from '@/components/Productos';
+import { datosSitio } from '@/lib/sitio';
+const { b, productos } = await datosSitio();
+const site = Astro.site!;
+const jsonLd = {
+  '@context': 'https://schema.org', '@type': 'ItemList', name: `Productos de ${b.nombre}`,
+  itemListElement: productos.map((p, i) => ({
+    '@type': 'ListItem', position: i + 1,
+    item: {
+      '@type': 'Product', name: p.nombre, description: p.descripcion || undefined, image: p.imagen_url || undefined,
+      category: p.categoria || undefined,
+      offers: { '@type': 'Offer', price: p.precio, priceCurrency: 'PEN',
+        availability: p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        seller: { '@id': new URL('/#barberia', site).toString() } },
+    },
+  })),
+};
+---
+
+<Base titulo={`Productos para cabello y barba · ${b.nombre}`}
+  descripcion={`Ceras, pomadas, aceites y champús para barba y cabello en ${b.nombre}. Precios y stock actualizados.`} jsonLd={jsonLd}>
+  <h1 class="titulo text-2xl mb-1">💈 Productos</h1>
+  <p class="text-sm text-base-500 mb-5">Lo que usamos en la silla, para que lo lleves a casa.</p>
+  <Productos client:load inicial={productos} whatsapp={b.whatsapp} />
+</Base>
