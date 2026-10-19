@@ -17,9 +17,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Aborta ANTES de construir/desplegar si falta un secreto: así nunca se
+      # publica una web sin Supabase ni se intenta deploy sin token.
+      - name: Verificar secretos
+        run: |
+          : "${PUBLIC_SUPABASE_URL:?Falta el secret PUBLIC_SUPABASE_URL}"
+          : "${PUBLIC_SUPABASE_ANON_KEY:?Falta el secret PUBLIC_SUPABASE_ANON_KEY}"
+          : "${CLOUDFLARE_API_TOKEN:?Falta el secret CLOUDFLARE_API_TOKEN}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?Falta el secret CLOUDFLARE_ACCOUNT_ID}"
+        env:
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
