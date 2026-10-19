@@ -235,6 +235,7 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
   const [nombre, setNombre] = useState('');
   const [dni, setDni] = useState('');
   const [tipo, setTipo] = useState<'DNI' | 'CE' | 'PASAPORTE'>('DNI');
+  const [anonimo, setAnonimo] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [frecuentes, setFrecuentes] = useState<{ nombre: string; dni: string | null }[]>([]);
 
@@ -287,8 +288,8 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const { error } = await supabase.rpc('agregar_walkin', {
-      p_barbero: f.get('barbero'), p_nombre: nombre.trim(),
-      p_dni: dni.trim(), p_servicio: f.get('servicio') || null, p_tipo: tipo,
+      p_barbero: f.get('barbero'), p_nombre: anonimo ? 'Anónimo' : nombre.trim(),
+      p_dni: anonimo ? null : dni.trim(), p_servicio: f.get('servicio') || null, p_tipo: tipo,
     });
     if (error) setError(msg(error)); else onListo();
   }
@@ -306,15 +307,16 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
         </div>
       )}
       <div className="grid gap-1.5">
-        <span className="etiqueta">Documento (obligatorio: con él se suman los cortes)</span>
+        <button type="button" aria-pressed={anonimo} onClick={() => setAnonimo(!anonimo)} className="chip min-h-10 w-fit !px-3 !text-sm aria-pressed:bg-acento-500 aria-pressed:text-black">{anonimo ? "✓ Corte anónimo: no se registra el cliente" : "Cliente sin registrar (anónimo)"}</button>
+        <span className="etiqueta">{anonimo ? "Sin documento" : "Documento (obligatorio: con él se suman los cortes)"}</span>
         <div className="flex gap-2">
-          <select value={tipo} onChange={(e) => { setTipo(e.target.value as typeof tipo); setDni(''); }} className="campo !w-auto" aria-label="Tipo de documento">
+          <select value={tipo} onChange={(e) => { setTipo(e.target.value as typeof tipo); setDni(''); }} className="campo !w-auto" aria-label="Tipo de documento" disabled={anonimo}>
             <option value="DNI">DNI</option>
             <option value="CE">Carné de extranjería</option>
             <option value="PASAPORTE">Pasaporte</option>
           </select>
           <input value={dni} onChange={(e) => setDni(tipo === 'DNI' ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20).toUpperCase())}
-            inputMode={tipo === 'DNI' ? 'numeric' : 'text'} placeholder={tipo === 'DNI' ? '8 dígitos' : 'Número de documento'} required className="campo" />
+            inputMode={tipo === 'DNI' ? 'numeric' : 'text'} placeholder={tipo === 'DNI' ? '8 dígitos' : 'Número de documento'} required={!anonimo} disabled={anonimo} className="campo" />
           {tipo === 'DNI' && <button type="button" className="btn shrink-0" disabled={dni.length !== 8 || buscando} onClick={buscarDni}>{buscando ? '…' : 'Buscar'}</button>}
         </div>
       </div>
@@ -338,7 +340,7 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
         </div>
       )}
       <label><span className="etiqueta">Nombre y apellidos</span>
-        <input value={nombre} onChange={(e) => setNombre(e.target.value)} required className="campo" /></label>
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} required={!anonimo} disabled={anonimo} className="campo" /></label>
       <label><span className="etiqueta">Barbero</span>
         <select name="barbero" className="campo">{barberos.map((b) => <option key={b.id} value={b.id}>{b.nombre} {b.cola ? `(cola ${b.cola})` : ''}</option>)}</select></label>
       <label><span className="etiqueta">Servicio</span>
