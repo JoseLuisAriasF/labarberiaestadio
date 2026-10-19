@@ -1,0 +1,16 @@
+{
+  "name": "El Estadio - Staff",
+  "short_name": "Staff",
+  "description": "Panel de barberos: jornada, citas y perfil.",
+  "lang": "es-PE",
+  "start_url": "/barber?pwa=1",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0e1117",
+  "theme_color": "#0e1117",
+  "icons": [
+    { "src": "/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

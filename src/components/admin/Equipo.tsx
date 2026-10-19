@@ -85,6 +85,9 @@ export default function Equipo({ datos, recargar }: { datos: DatosBarberia; reca
             <span className="flex-1 min-w-40">
               <b className="block text-sm">{b.nombre}</b>
               <span className="text-xs text-base-500">@{b.usuario} · {ESTADOS[b.estado].emoji} {ESTADOS[b.estado].texto}{b.debe_cambiar_clave && ' · ⚠️ clave temporal'}</span>
+              {(b.email_real || b.telefono_real || b.whatsapp) && (
+                <span className="block text-xs text-base-400">{[b.email_real, b.telefono_real && `📱${b.telefono_real}`, b.whatsapp && `WA:${b.whatsapp}`].filter(Boolean).join(' · ')}</span>
+              )}
             </span>
             {barberia.modo_financiero === 'CENTRALIZADO' && (
               <label className="text-xs flex items-center gap-1">Comisión
@@ -104,6 +107,9 @@ export default function Equipo({ datos, recargar }: { datos: DatosBarberia; reca
           <label><span className="etiqueta">Nombre visible</span><input name="nombre" required minLength={2} maxLength={60} className="campo" /></label>
           <label><span className="etiqueta">Usuario (para el login)</span><input name="usuario" required pattern="[a-z0-9_]{3,24}" autoCapitalize="none" className="campo" placeholder="ej. carlos" /></label>
           <label><span className="etiqueta">Clave temporal</span><input name="clave" required minLength={8} defaultValue={claveAleatoria()} className="campo font-mono" /></label>
+          <label><span className="etiqueta">Email (para notificaciones)</span><input name="email_real" type="email" className="campo" placeholder="barbero@gmail.com" /></label>
+          <label><span className="etiqueta">Teléfono</span><input name="telefono_real" type="tel" className="campo" placeholder="987654321" /></label>
+          <label><span className="etiqueta">WhatsApp (para citas)</span><input name="whatsapp" type="tel" className="campo" placeholder="51987654321" /></label>
           <p className="text-xs text-base-500">El barbero entra con código <b>{barberia.codigo}</b> + usuario + esta clave, y el sistema le obliga a cambiarla.</p>
           {error && <Aviso>{error}</Aviso>}
           <button className="btn-acento">Crear barbero</button>

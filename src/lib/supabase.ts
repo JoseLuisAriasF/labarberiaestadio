@@ -38,3 +38,38 @@ export async function urlComprobante(ruta: string) {
   const { data } = await supabase.storage.from('comprobantes').createSignedUrl(ruta, 600);
   return data?.signedUrl;
 }
+
+export const VAPID_PUBLIC_KEY = 'BKxlvgaU0HwHLLLA3NhN1ZAu3OR_RIHlNtpXJ_9gXwqeQB-K5g2jbImW1BnVUmLkhjSWYySiXzFu8NaHfmHfvxE';
+
+/** Suscribe al usuario a push notifications. Fire-and-forget. */
+export async function suscribirPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY });
+    }
+    const key = sub.toJSON();
+    const session = (await supabase.auth.getSession()).data.session;
+    if (!session || !key.endpoint) return;
+    fetch('/api/push-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ endpoint: key.endpoint, p256dh: key.keys?.p256dh, auth: key.keys?.auth }),
+    }).catch(() => {});
+  } catch {}
+}
+
+/** Fire-and-forget: notifica por email al barbero y/o cliente. No bloquea ni lanza errores. */
+export function notificar(tipo: 'cita_confirmada' | 'cita_nueva' | 'pago_recibido', cita_id: string) {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+      body: JSON.stringify({ tipo, cita_id }),
+    }).catch(() => {});
+  });
+}

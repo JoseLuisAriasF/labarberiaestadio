@@ -33,9 +33,9 @@ const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTI
     <link rel="canonical" href={canonical} />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" href={privado ? '/manifest-staff.webmanifest' : '/manifest.webmanifest'} />
     <link rel="apple-touch-icon" href="/icono-192.png" />
-    <meta name="theme-color" content="#171b24" />
+    <meta name="theme-color" content="#0e1117" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
 
     {/* GEO local: región, ciudad y coordenadas del local (Bing y buscadores locales los leen). */}

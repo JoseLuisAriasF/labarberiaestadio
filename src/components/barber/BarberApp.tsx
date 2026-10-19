@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { msg, subirImagen, supabase } from '@/lib/supabase';
+import { msg, subirImagen, suscribirPush, supabase } from '@/lib/supabase';
 import { useBarberia } from '@/lib/useBarberia';
 import type { Barbero, EstadoBarbero, Horario } from '@/lib/tipos';
 import { ESTADOS, soles } from '@/lib/tipos';
@@ -19,6 +19,7 @@ export default function BarberApp() {
       const { data } = await supabase.from('barberos').select('*').eq('usuario_id', user.id).maybeSingle();
       if (!data) return location.replace('/login');
       setYo(data);
+      suscribirPush();
     });
   }, []);
 
@@ -122,6 +123,9 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
   const [esp, setEsp] = useState(yo.especialidades_bestseller.join(', '));
   const [yape, setYape] = useState(yo.yape_numero ?? '');
   const [plin, setPlin] = useState(yo.plin_numero ?? '');
+  const [emailReal, setEmailReal] = useState(yo.email_real ?? '');
+  const [telReal, setTelReal] = useState(yo.telefono_real ?? '');
+  const [wa, setWa] = useState(yo.whatsapp ?? '');
   const [avatar, setAvatar] = useState(yo.avatar_url ?? '');
   const [ok, setOk] = useState('');
   const [error, setError] = useState('');
@@ -132,6 +136,7 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
     const { error } = await supabase.rpc('barbero_actualizar_perfil', {
       p_avatar: avatar || null, p_bio: bio, p_horario: horario,
       p_especialidades: esp.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 8), p_yape: yape || null, p_plin: plin || null,
+      p_email_real: emailReal || null, p_telefono_real: telReal || null, p_whatsapp: wa || null,
     });
     if (error) setError(msg(error)); else { setOk('Perfil guardado ✅'); recargar(); }
   }
@@ -156,6 +161,11 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
         </div>
         <label><span className="etiqueta">Sobre mí</span><textarea className="campo" rows={2} maxLength={300} value={bio} onChange={(e) => setBio(e.target.value)} /></label>
         <label><span className="etiqueta">Especialidades (separadas por coma)</span><input className="campo" value={esp} onChange={(e) => setEsp(e.target.value)} placeholder="Fade, Diseños, Barba con toalla caliente" /></label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label><span className="etiqueta">Email (notificaciones)</span><input className="campo" type="email" value={emailReal} onChange={(e) => setEmailReal(e.target.value)} placeholder="tu@gmail.com" /></label>
+          <label><span className="etiqueta">Teléfono</span><input className="campo" inputMode="tel" value={telReal} onChange={(e) => setTelReal(e.target.value)} placeholder="987654321" /></label>
+          <label><span className="etiqueta">WhatsApp</span><input className="campo" inputMode="tel" value={wa} onChange={(e) => setWa(e.target.value)} placeholder="51987654321" /></label>
+        </div>
         {datos.barberia.modo_financiero === 'INDIVIDUAL' && (
           <div className="grid grid-cols-2 gap-3">
             <label><span className="etiqueta">Mi Yape</span><input className="campo" inputMode="tel" value={yape} onChange={(e) => setYape(e.target.value)} /></label>

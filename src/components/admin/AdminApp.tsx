@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, Gift, LayoutGrid, MapPin, Package, Scissors, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { CalendarDays, Gift, LayoutGrid, LogOut, MapPin, Menu, Package, Scissors, ShieldCheck, Users, Wallet, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useBarberia } from '@/lib/useBarberia';
 import type { Premio, Producto, Servicio } from '@/lib/tipos';
@@ -29,8 +29,8 @@ type Tab = (typeof TABS)[number]['id'];
 export default function AdminApp() {
   const [barberiaId, setBarberiaId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>(() => (location.hash.slice(1) as Tab) || 'agenda');
+  const [menuAbierto, setMenuAbierto] = useState(false);
 
-  // Guardia: sólo el dueño entra. (RLS lo impone igual; esto es para la UX.)
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return location.replace('/login');
@@ -46,72 +46,108 @@ export default function AdminApp() {
   const { barberia } = datos;
   const dias = Math.ceil((Date.parse(barberia.trial_ends_at) - Date.now()) / 864e5);
 
-  return (
-    <div className="grid gap-5 lg:grid-cols-[13rem_1fr] items-start">
-      <nav aria-label="Secciones del panel" className="flex lg:flex-col gap-1 overflow-x-auto lg:sticky lg:top-20 -mx-4 px-4 lg:mx-0 lg:px-0 pb-1">
-        <div className="hidden lg:block neu rounded-2xl p-3 mb-2">
-          <p className="titulo text-sm truncate">{barberia.nombre}</p>
-          <p className="text-xs text-base-500">Código <b className="text-acento-500">{barberia.codigo}</b></p>
-          <a href={`/?b=${barberia.codigo}`} target="_blank" className="text-xs text-acento-500">Ver web pública ↗</a>
-        </div>
+  function ir(id: Tab) { setTab(id); setMenuAbierto(false); }
+
+  const sidebar = (
+    <>
+      <div className="p-5 border-b border-white/5">
+        <p className="text-base font-bold text-white truncate">💈 {barberia.nombre}</p>
+        <p className="text-xs text-gray-400 mt-0.5">Código <b className="text-purple-400">{barberia.codigo}</b></p>
+        <a href={`/?b=${barberia.codigo}`} target="_blank" className="text-xs text-purple-400 hover:text-purple-300 mt-1 inline-block">Ver web pública ↗</a>
+      </div>
+      <div className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
         {TABS.map(({ id, t, I }) => (
-          <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined}
-            className="shrink-0 rounded-xl px-3 py-2 text-sm flex items-center gap-2 neu-press aria-[current=page]:neu-inset aria-[current=page]:text-acento-500">
-            <I className="size-4" /> {t}
+          <button key={id} onClick={() => ir(id)} aria-current={tab === id ? 'page' : undefined}
+            className="w-full rounded-lg px-3 py-2.5 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors aria-[current=page]:bg-purple-500/15 aria-[current=page]:text-purple-400 aria-[current=page]:font-medium">
+            <I className="size-4 shrink-0" /> {t}
           </button>
         ))}
-      </nav>
+      </div>
+      <div className="p-3 border-t border-white/5">
+        <button onClick={() => supabase.auth.signOut().then(() => location.replace('/login'))}
+          className="w-full rounded-lg px-3 py-2 text-sm flex items-center gap-3 text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors">
+          <LogOut className="size-4" /> Cerrar sesión
+        </button>
+      </div>
+    </>
+  );
 
-      <div className="grid gap-4 min-w-0">
-        {barberia.plan === 'TRIAL' && (
-          <Aviso tipo={dias > 7 ? 'info' : 'error'}>
-            {dias > 0 ? `🎁 Periodo de prueba: te quedan ${dias} días gratis (hasta el ${new Date(barberia.trial_ends_at).toLocaleDateString('es-PE')}).`
-              : '⛔ Tu prueba terminó: las reservas online están pausadas. Escríbenos para activar tu plan.'}
-          </Aviso>
-        )}
+  return (
+    <div className="flex min-h-[calc(100dvh-4rem)] -mx-4 sm:-mx-6">
+      {/* Sidebar desktop */}
+      <aside className="hidden lg:flex lg:flex-col w-60 shrink-0 sticky top-0 h-dvh bg-gradient-to-b from-[#0a0a1a] to-[#12122a] border-r border-white/5">
+        {sidebar}
+      </aside>
 
-        {tab === 'agenda' && (
-          <Agenda barberia={barberia} barberos={datos.barberos} servicios={datos.servicios}
-            // Centralizado: valida el dueño. Individual: lo valida cada barbero, pero el dueño puede siempre.
-            puedeValidar={() => true} />
-        )}
-        {tab === 'equipo' && <Equipo datos={datos} recargar={recargar} />}
-        {tab === 'servicios' && (
-          <Crud<Servicio> tabla="servicios_cortes" barberiaId={barberia.id} titulo="Catálogo de cortes y servicios" orden="precio_base"
-            campos={[
-              { k: 'nombre', t: 'Nombre', req: true }, { k: 'descripcion', t: 'Descripción', tipo: 'textarea' },
-              { k: 'precio_base', t: 'Precio base (S/)', tipo: 'number', req: true, min: 0, paso: 0.5 },
-              { k: 'duracion_min', t: 'Duración (minutos)', tipo: 'number', req: true, min: 5, max: 480, paso: 5 },
-              { k: 'foto_url', t: 'Foto referencial', tipo: 'imagen' }, { k: 'activo', t: 'Visible para clientes', tipo: 'bool' },
-            ]}
-            columnas={(s) => (
-              <span className="flex items-center gap-3">
-                {s.foto_url && <img src={s.foto_url} alt="" className="size-10 rounded-lg object-cover" />}
-                <span><b className="text-sm">{s.nombre}</b> <span className="text-xs text-base-500">· {s.duracion_min} min · {soles(s.precio_base)}{!s.activo && ' · oculto'}</span></span>
-              </span>
-            )} />
-        )}
-        {tab === 'pisos' && <Pisos datos={datos} recargar={recargar} />}
-        {tab === 'clientes' && <VerificarDni />}
-        {tab === 'lealtad' && <Lealtad datos={datos} recargar={recargar} />}
-        {tab === 'productos' && (
-          <Crud<Producto> tabla="productos" barberiaId={barberia.id} titulo="Productos a la venta"
-            campos={[
-              { k: 'nombre', t: 'Nombre', req: true }, { k: 'categoria', t: 'Categoría (Ceras, Aceites, Champús…)' },
-              { k: 'descripcion', t: 'Descripción', tipo: 'textarea' },
-              { k: 'precio', t: 'Precio (S/)', tipo: 'number', req: true, min: 0, paso: 0.5 },
-              { k: 'stock', t: 'Stock', tipo: 'number', req: true, min: 0 },
-              { k: 'imagen_url', t: 'Imagen', tipo: 'imagen' }, { k: 'activo', t: 'Publicado', tipo: 'bool' },
-            ]}
-            columnas={(p) => (
-              <span className="flex items-center gap-3">
-                {p.imagen_url && <img src={p.imagen_url} alt="" className="size-10 rounded-lg object-cover" />}
-                <span><b className="text-sm">{p.nombre}</b> <span className="text-xs text-base-500">· {soles(p.precio)} · stock {p.stock}</span></span>
-              </span>
-            )} />
-        )}
-        {tab === 'finanzas' && <Finanzas datos={datos} recargar={recargar} />}
-        {tab === 'local' && <Local barberia={barberia} recargar={recargar} />}
+      {/* Mobile header + overlay */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#0a0a1a]/95 backdrop-blur-sm border-b border-white/5 flex items-center px-4 gap-3">
+        <button onClick={() => setMenuAbierto(!menuAbierto)} className="text-white p-1">
+          {menuAbierto ? <X className="size-5" /> : <Menu className="size-5" />}
+        </button>
+        <span className="text-sm font-semibold text-white truncate">{barberia.nombre}</span>
+        <span className="text-xs text-purple-400 ml-auto">{TABS.find((t) => t.id === tab)?.t}</span>
+      </div>
+      {menuAbierto && (
+        <>
+          <div className="lg:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMenuAbierto(false)} />
+          <aside className="lg:hidden fixed top-0 left-0 bottom-0 z-50 w-64 flex flex-col bg-gradient-to-b from-[#0a0a1a] to-[#12122a] shadow-2xl">
+            {sidebar}
+          </aside>
+        </>
+      )}
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 lg:px-6 px-4 py-4 lg:py-6 lg:mt-0 mt-14">
+        <div className="max-w-5xl mx-auto grid gap-4">
+          {barberia.plan === 'TRIAL' && (
+            <Aviso tipo={dias > 7 ? 'info' : 'error'}>
+              {dias > 0 ? `🎁 Periodo de prueba: te quedan ${dias} días gratis (hasta el ${new Date(barberia.trial_ends_at).toLocaleDateString('es-PE')}).`
+                : '⛔ Tu prueba terminó: las reservas online están pausadas. Escríbenos para activar tu plan.'}
+            </Aviso>
+          )}
+
+          {tab === 'agenda' && (
+            <Agenda barberia={barberia} barberos={datos.barberos} servicios={datos.servicios}
+              puedeValidar={() => true} />
+          )}
+          {tab === 'equipo' && <Equipo datos={datos} recargar={recargar} />}
+          {tab === 'servicios' && (
+            <Crud<Servicio> tabla="servicios_cortes" barberiaId={barberia.id} titulo="Catálogo de cortes y servicios" orden="precio_base"
+              campos={[
+                { k: 'nombre', t: 'Nombre', req: true }, { k: 'descripcion', t: 'Descripción', tipo: 'textarea' },
+                { k: 'precio_base', t: 'Precio base (S/)', tipo: 'number', req: true, min: 0, paso: 0.5 },
+                { k: 'duracion_min', t: 'Duración (minutos)', tipo: 'number', req: true, min: 5, max: 480, paso: 5 },
+                { k: 'foto_url', t: 'Foto referencial', tipo: 'imagen' }, { k: 'activo', t: 'Visible para clientes', tipo: 'bool' },
+              ]}
+              columnas={(s) => (
+                <span className="flex items-center gap-3">
+                  {s.foto_url && <img src={s.foto_url} alt="" className="size-10 rounded-lg object-cover" />}
+                  <span><b className="text-sm">{s.nombre}</b> <span className="text-xs text-base-500">· {s.duracion_min} min · {soles(s.precio_base)}{!s.activo && ' · oculto'}</span></span>
+                </span>
+              )} />
+          )}
+          {tab === 'pisos' && <Pisos datos={datos} recargar={recargar} />}
+          {tab === 'clientes' && <VerificarDni />}
+          {tab === 'lealtad' && <Lealtad datos={datos} recargar={recargar} />}
+          {tab === 'productos' && (
+            <Crud<Producto> tabla="productos" barberiaId={barberia.id} titulo="Productos a la venta"
+              campos={[
+                { k: 'nombre', t: 'Nombre', req: true }, { k: 'categoria', t: 'Categoría (Ceras, Aceites, Champús…)' },
+                { k: 'descripcion', t: 'Descripción', tipo: 'textarea' },
+                { k: 'precio', t: 'Precio (S/)', tipo: 'number', req: true, min: 0, paso: 0.5 },
+                { k: 'stock', t: 'Stock', tipo: 'number', req: true, min: 0 },
+                { k: 'imagen_url', t: 'Imagen', tipo: 'imagen' }, { k: 'activo', t: 'Publicado', tipo: 'bool' },
+              ]}
+              columnas={(p) => (
+                <span className="flex items-center gap-3">
+                  {p.imagen_url && <img src={p.imagen_url} alt="" className="size-10 rounded-lg object-cover" />}
+                  <span><b className="text-sm">{p.nombre}</b> <span className="text-xs text-base-500">· {soles(p.precio)} · stock {p.stock}</span></span>
+                </span>
+              )} />
+          )}
+          {tab === 'finanzas' && <Finanzas datos={datos} recargar={recargar} />}
+          {tab === 'local' && <Local barberia={barberia} recargar={recargar} />}
+        </div>
       </div>
     </div>
   );

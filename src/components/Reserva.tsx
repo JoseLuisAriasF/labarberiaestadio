@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, Clock, Upload } from 'lucide-react';
-import { msg, subirImagen, supabase } from '@/lib/supabase';
+import { CalendarCheck, Clock, MessageCircle, Upload } from 'lucide-react';
+import { msg, notificar, subirImagen, supabase } from '@/lib/supabase';
 import { bloquesDelDia, hoyLima, isoDow, sumarDias, type Bloque } from '@/lib/agenda';
 import { entrarConGoogle, useSesion } from '@/lib/useSesion';
 import type { Barbero } from '@/lib/tipos';
@@ -79,13 +79,15 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
       if (archivo) ruta = (await subirImagen('comprobantes', `${barberia.id}/${user.id}`, archivo)).ruta;
       if (!verificado && !ruta) throw new Error('Adjunta la captura de tu Yape/Plin');
       const inicio = new Date(`${fecha}T${hora}:00-05:00`).toISOString();
-      const { error } = await supabase.rpc('reservar_cita', {
+      const { data: citaId, error } = await supabase.rpc('reservar_cita', {
         p_barbero: barbero.id, p_servicio: servicio.id, p_inicio: inicio,
         p_comprobante: ruta, p_metodo: ruta ? metodo : null, p_voucher: voucherId || null,
       });
       if (error) throw error;
       sessionStorage.removeItem(BORRADOR);
-      setHecho({ estado: verificado && !ruta ? 'CONFIRMADA' : 'PENDIENTE_PAGO' });
+      const estado = verificado && !ruta ? 'CONFIRMADA' : 'PENDIENTE_PAGO';
+      if (citaId) notificar(estado === 'CONFIRMADA' ? 'cita_nueva' : 'pago_recibido', citaId);
+      setHecho({ estado });
     } catch (e) { setError(msg(e)); } finally { setEnviando(false); }
   }
 
@@ -193,9 +195,15 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 <b className="text-base">{soles(precio)}</b>
               </div>
               {error && <Aviso>{error}</Aviso>}
-              <button onClick={confirmar} disabled={enviando || (!verificado && !archivo)} className="btn-acento">
-                <CalendarCheck className="size-4" /> {enviando ? 'Reservando…' : verificado ? 'Confirmar cita' : 'Enviar comprobante y reservar'}
+              <button onClick={confirmar} disabled={enviando || (!verificado && !archivo)} className="btn-gradient py-3">
+                <CalendarCheck className="size-5" /> {enviando ? 'Reservando…' : verificado ? 'Confirmar cita' : 'Enviar comprobante y reservar'}
               </button>
+              {verificado && barbero.whatsapp && (
+                <a href={`https://wa.me/${barbero.whatsapp}?text=${encodeURIComponent(`Hola ${barbero.nombre}, soy ${cliente.nombre}. Quiero confirmar mi cita de ${servicio.nombre} el ${DIAS[isoDow(fecha)]} ${fecha.slice(8)} a las ${hora}. ¡Gracias!`)}`}
+                  target="_blank" rel="noopener" className="btn text-green-500 border-green-500/30">
+                  <MessageCircle className="size-4" /> Confirmar por WhatsApp
+                </a>
+              )}
             </>
           )}
         </section>
@@ -220,6 +228,12 @@ function Listo({ estado, barbero, servicio, fecha, hora, duracion, onListo }: {
         {estado !== 'CONFIRMADA' && ' Te confirmamos apenas validemos tu comprobante. Mira el estado en tu perfil.'}
       </p>
       <a href={cal} target="_blank" rel="noopener" className="btn">📅 Añadir a Google Calendar</a>
+      {barbero.whatsapp && (
+        <a href={`https://wa.me/${barbero.whatsapp}?text=${encodeURIComponent(`Hola ${barbero.nombre}, acabo de reservar ${servicio} para el ${DIAS[isoDow(fecha)]} ${fecha.slice(8)} a las ${hora}. ¡Nos vemos!`)}`}
+          target="_blank" rel="noopener" className="btn text-green-500">
+          <MessageCircle className="inline size-4" /> Escribir por WhatsApp
+        </a>
+      )}
       <a href="/perfil" className="btn">Ver mis citas</a>
       <button onClick={onListo} className="text-xs text-base-400">Cerrar</button>
     </div>

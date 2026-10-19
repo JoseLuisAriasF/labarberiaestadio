@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Globe, LocateFixed, Save, Trash2, Upload } from 'lucide-react';
+import { Download, Globe, LocateFixed, QrCode, Save, Trash2, Upload } from 'lucide-react';
 import { msg, subirImagen, supabase } from '@/lib/supabase';
 import type { Barberia, Horario } from '@/lib/tipos';
 import EditorHorario from '../Horario';
@@ -135,6 +135,12 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
         {b.qr_pago_url && <img src={b.qr_pago_url} alt="QR" className="w-32 rounded-xl" />}
       </section>
 
+      <section className="grid gap-3">
+        <h3 className="titulo"><QrCode className="inline size-5" /> QR para reservas</h3>
+        <p className="text-xs text-base-500">Imprime este QR y colócalo en el local. Los clientes lo escanean y van directo a reservar.</p>
+        <QrBooking codigo={barberia.codigo} nombre={barberia.nombre} />
+      </section>
+
       {error && <Aviso>{error}</Aviso>}
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
       <div className="flex flex-wrap gap-2 sticky bottom-3">
@@ -143,4 +149,252 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
       </div>
     </div>
   );
+}
+
+function QrBooking({ codigo, nombre }: { codigo: string; nombre: string }) {
+  const url = `${location.origin}/?b=${codigo}#reservar`;
+  const svg = generarQR(url);
+  const descargar = () => {
+    const canvas = document.createElement('canvas');
+    const size = 1024;
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+      ctx.fillStyle = '#0e1117';
+      ctx.font = 'bold 28px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(nombre, size / 2, size - 20);
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `qr-${codigo}.png`;
+      a.click();
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  };
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-4">
+      <div className="neu rounded-2xl p-4 bg-white" dangerouslySetInnerHTML={{ __html: svg }} />
+      <div className="grid gap-2 text-sm">
+        <p className="font-mono text-xs text-base-400 break-all select-all">{url}</p>
+        <button className="btn" onClick={descargar}><Download className="size-4" /> Descargar PNG (1024px)</button>
+        <button className="btn" onClick={() => navigator.clipboard.writeText(url)}>📋 Copiar enlace</button>
+      </div>
+    </div>
+  );
+}
+
+// QR Code generator — inline, no dependencies
+// Generates a minimal QR Code SVG using alphanumeric mode
+function generarQR(texto: string): string {
+  const mods = qrEncode(texto);
+  const n = mods.length;
+  const cell = 4;
+  const margin = 4;
+  const size = (n + margin * 2) * cell;
+  let rects = '';
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++)
+      if (mods[y][x])
+        rects += `<rect x="${(x + margin) * cell}" y="${(y + margin) * cell}" width="${cell}" height="${cell}"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="200" height="200"><rect width="${size}" height="${size}" fill="#fff"/><g fill="#0e1117">${rects}</g></svg>`;
+}
+
+// Minimal QR encoder (byte mode, error correction L, version auto-select)
+function qrEncode(text: string): boolean[][] {
+  const data = new TextEncoder().encode(text);
+  const len = data.length;
+  // Pick smallest version that fits (byte mode, EC level L)
+  const caps = [0,17,32,53,78,106,134,154,192,230,271,321,367,425,458,520,586,644,718,792,858];
+  let ver = 1;
+  for (; ver <= 20; ver++) if (caps[ver] >= len) break;
+  if (ver > 20) ver = 20;
+
+  const n = 17 + ver * 4;
+  const mods: boolean[][] = Array.from({ length: n }, () => Array(n).fill(false));
+  const reserved: boolean[][] = Array.from({ length: n }, () => Array(n).fill(false));
+
+  // Finder patterns
+  const finder = (r: number, c: number) => {
+    for (let dy = -1; dy <= 7; dy++) for (let dx = -1; dx <= 7; dx++) {
+      const y = r + dy, x = c + dx;
+      if (y < 0 || y >= n || x < 0 || x >= n) continue;
+      const on = dy >= 0 && dy <= 6 && dx >= 0 && dx <= 6 &&
+        (dy === 0 || dy === 6 || dx === 0 || dx === 6 || (dy >= 2 && dy <= 4 && dx >= 2 && dx <= 4));
+      mods[y][x] = on;
+      reserved[y][x] = true;
+    }
+  };
+  finder(0, 0); finder(0, n - 7); finder(n - 7, 0);
+
+  // Alignment patterns
+  const aligns = alignPositions(ver);
+  for (const ay of aligns) for (const ax of aligns) {
+    if ((ay < 9 && ax < 9) || (ay < 9 && ax > n - 9) || (ay > n - 9 && ax < 9)) continue;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      mods[ay + dy][ax + dx] = Math.abs(dy) === 2 || Math.abs(dx) === 2 || (dy === 0 && dx === 0);
+      reserved[ay + dy][ax + dx] = true;
+    }
+  }
+
+  // Timing patterns
+  for (let i = 8; i < n - 8; i++) {
+    mods[6][i] = mods[i][6] = i % 2 === 0;
+    reserved[6][i] = reserved[i][6] = true;
+  }
+
+  // Reserve format & version areas
+  for (let i = 0; i < 9; i++) {
+    reserved[8][i] = reserved[i][8] = true;
+    if (i < 8) reserved[8][n - 1 - i] = true;
+    if (i < 7) reserved[n - 1 - i][8] = true;
+  }
+  reserved[n - 8][8] = true;
+  mods[n - 8][8] = true; // dark module
+
+  if (ver >= 7) {
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) {
+      reserved[i][n - 11 + j] = reserved[n - 11 + j][i] = true;
+    }
+  }
+
+  // Encode data
+  const totalCodewords = getCodewordsCount(ver);
+  const ecCodewords = getEcCount(ver);
+  const dataCodewords = totalCodewords - ecCodewords;
+
+  const bits: number[] = [];
+  const push = (val: number, len: number) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
+  push(0b0100, 4); // byte mode
+  push(len, ver <= 9 ? 8 : 16);
+  for (const b of data) push(b, 8);
+  push(0, Math.min(4, dataCodewords * 8 - bits.length));
+  while (bits.length % 8) bits.push(0);
+  while (bits.length < dataCodewords * 8) { push(0xEC, 8); if (bits.length < dataCodewords * 8) push(0x11, 8); }
+
+  const codewords = new Uint8Array(dataCodewords);
+  for (let i = 0; i < dataCodewords; i++) {
+    let v = 0;
+    for (let j = 0; j < 8; j++) v = (v << 1) | (bits[i * 8 + j] || 0);
+    codewords[i] = v;
+  }
+
+  const ec = rsEncode(codewords, ecCodewords);
+  const allBits: number[] = [];
+  for (const b of codewords) push.call(null, b, 8), allBits.push(...bits.slice(bits.length - 8));
+  // re-collect
+  const finalBits: number[] = [];
+  for (const b of codewords) for (let i = 7; i >= 0; i--) finalBits.push((b >> i) & 1);
+  for (const b of ec) for (let i = 7; i >= 0; i--) finalBits.push((b >> i) & 1);
+
+  // Place data
+  let idx = 0;
+  for (let right = n - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let vert = 0; vert < n; vert++) {
+      for (const j of [0, 1]) {
+        const x = right - j;
+        const upward = ((right + 1) & 2) === 0;
+        const y = upward ? n - 1 - vert : vert;
+        if (!reserved[y][x] && idx < finalBits.length) {
+          mods[y][x] = finalBits[idx++] === 1;
+        }
+      }
+    }
+  }
+
+  // Apply mask 0 (checkerboard) and write format info
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (!reserved[y][x] && (y + x) % 2 === 0) mods[y][x] = !mods[y][x];
+  }
+
+  // Format info for mask 0, EC level L
+  const fmtBits = 0b111011111000100;
+  for (let i = 0; i < 15; i++) {
+    const bit = ((fmtBits >> (14 - i)) & 1) === 1;
+    if (i < 6) mods[8][i] = bit;
+    else if (i === 6) mods[8][7] = bit;
+    else if (i === 7) mods[8][8] = bit;
+    else mods[14 - i][8] = bit;
+
+    if (i < 8) mods[n - 1 - i][8] = bit;
+    else mods[8][n - 15 + i] = bit;
+  }
+
+  if (ver >= 7) {
+    const vBits = versionInfo(ver);
+    for (let i = 0; i < 18; i++) {
+      const bit = ((vBits >> i) & 1) === 1;
+      mods[Math.floor(i / 3)][n - 11 + (i % 3)] = bit;
+      mods[n - 11 + (i % 3)][Math.floor(i / 3)] = bit;
+    }
+  }
+
+  return mods;
+}
+
+function alignPositions(ver: number): number[] {
+  if (ver === 1) return [];
+  const n = 17 + ver * 4;
+  const count = Math.floor(ver / 7) + 2;
+  const step = Math.ceil((n - 13) / (count - 1) / 2) * 2;
+  const pos = [6];
+  for (let i = 1; i < count; i++) pos.push(n - 7 - (count - 1 - i) * step);
+  return pos;
+}
+
+function getCodewordsCount(ver: number): number {
+  const n = 17 + ver * 4;
+  let total = n * n;
+  total -= 3 * 64; // finders
+  total -= 2 * (n - 16) + 1; // timing
+  total -= 31; // format
+  if (ver >= 7) total -= 36;
+  const aligns = alignPositions(ver);
+  let ac = 0;
+  for (const ay of aligns) for (const ax of aligns) {
+    if ((ay < 9 && ax < 9) || (ay < 9 && ax > n - 9) || (ay > n - 9 && ax < 9)) continue;
+    ac++;
+  }
+  total -= ac * 25;
+  return Math.floor(total / 8);
+}
+
+function getEcCount(ver: number): number {
+  // EC codewords for level L (simplified table for versions 1-20)
+  const ec = [0,7,10,15,20,26,18,20,24,30,18,20,24,26,30,22,24,28,30,28,28];
+  return ec[ver] || 28;
+}
+
+function rsEncode(data: Uint8Array, ecLen: number): Uint8Array {
+  const gf256 = new Uint8Array(256);
+  const gfLog = new Uint8Array(256);
+  let v = 1;
+  for (let i = 0; i < 255; i++) { gf256[i] = v; gfLog[v] = i; v = (v << 1) ^ (v >= 128 ? 0x11d : 0); }
+  const mul = (a: number, b: number) => a === 0 || b === 0 ? 0 : gf256[(gfLog[a] + gfLog[b]) % 255];
+
+  const gen = new Uint8Array(ecLen + 1);
+  gen[0] = 1;
+  for (let i = 0; i < ecLen; i++) {
+    for (let j = i + 1; j >= 1; j--) gen[j] = gen[j - 1] ^ mul(gen[j], gf256[i]);
+    gen[0] = mul(gen[0], gf256[i]);
+  }
+
+  const msg = new Uint8Array(data.length + ecLen);
+  msg.set(data);
+  for (let i = 0; i < data.length; i++) {
+    const coef = msg[i];
+    if (coef === 0) continue;
+    for (let j = 0; j <= ecLen; j++) msg[i + j] ^= mul(gen[j], coef);
+  }
+  return msg.slice(data.length);
+}
+
+function versionInfo(ver: number): number {
+  let d = ver << 12;
+  for (let i = 5; i >= 0; i--) if (d & (1 << (i + 12))) d ^= 0x1F25 << i;
+  return (ver << 12) | d;
 }

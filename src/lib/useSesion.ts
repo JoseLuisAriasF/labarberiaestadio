@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { supabase, suscribirPush } from './supabase';
 import type { Cliente } from './tipos';
 
 /** Sesión del cliente (Google) + su ficha con DNI, si ya la creó. */
@@ -19,6 +19,7 @@ export function useSesion() {
     supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user);
       await cargarCliente(data.user);
+      if (data.user) suscribirPush();
       setCargando(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {

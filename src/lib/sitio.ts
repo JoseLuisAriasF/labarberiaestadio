@@ -64,6 +64,10 @@ export function jsonLdBarberia(b: Barberia, site: URL, servicios: Servicio[] = [
     openingHoursSpecification: Object.entries(b.horario || {})
       .filter(([, f]) => f)
       .map(([d, f]) => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: DIA_SCHEMA[+d], opens: f![0], closes: f![1] })),
+    sameAs: [
+      'https://www.tiktok.com/@el.estadio_barberia',
+      'https://www.facebook.com/ElestadioBarberia/',
+    ],
     potentialAction: { '@type': 'ReserveAction', target: new URL('/#reservar', site).toString() },
     makesOffer: servicios.map((s) => ({
       '@type': 'Offer', price: s.precio_base, priceCurrency: 'PEN',

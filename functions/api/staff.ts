@@ -33,8 +33,11 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
         app_metadata: { rol: 'barbero', barberia_id: b.id },
       });
       if (error || !u.user) return json({ error: error?.message?.includes('already') ? 'Ese usuario ya existe' : 'No se pudo crear la cuenta' }, 400);
+      const email_real = String(body.email_real ?? '').trim() || null;
+      const telefono_real = String(body.telefono_real ?? '').trim() || null;
+      const whatsapp = String(body.whatsapp ?? '').trim() || null;
       const { data: nuevo, error: e2 } = await sb.from('barberos')
-        .insert({ usuario_id: u.user.id, barberia_id: b.id, usuario, nombre, debe_cambiar_clave: true }).select('*').single();
+        .insert({ usuario_id: u.user.id, barberia_id: b.id, usuario, nombre, debe_cambiar_clave: true, email_real, telefono_real, whatsapp }).select('*').single();
       if (e2) { await sb.auth.admin.deleteUser(u.user.id); return json({ error: 'No se pudo registrar el barbero' }, 400); }
       return json({ barbero: nuevo });
     }

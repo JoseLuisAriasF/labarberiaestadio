@@ -5,6 +5,9 @@ export interface Env {
   SUPABASE_SERVICE_KEY: string;
   TURNSTILE_SECRET?: string;
   DEPLOY_HOOK_URL?: string;
+  RESEND_API_KEY?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
 }
 
 // Las Pages Functions son el ÚNICO sitio con la service key: crean cuentas de

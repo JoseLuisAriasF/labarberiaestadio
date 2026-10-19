@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Play, UserPlus, X } from 'lucide-react';
-import { msg, subirImagen, supabase, urlComprobante } from '@/lib/supabase';
+import { msg, notificar, subirImagen, supabase, urlComprobante } from '@/lib/supabase';
 import { hoyLima, sumarDias } from '@/lib/agenda';
 import type { Barberia, Barbero, Cita, Servicio } from '@/lib/tipos';
 import { ESTADOS_CITA, soles } from '@/lib/tipos';
@@ -147,7 +147,7 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
             <p className="text-xs text-base-500">Confirma en tu app de Yape/Plin que el abono llegó antes de aprobar. Al aprobar, el cliente queda 100% verificado.</p>
             <div className="grid grid-cols-2 gap-2">
               <button className="btn text-red-500" onClick={() => { rpc('revisar_pago', { p_cita: comprobante.cita.id, p_aprobar: false }); setComprobante(null); }}>Rechazar</button>
-              <button className="btn-acento" onClick={() => { rpc('revisar_pago', { p_cita: comprobante.cita.id, p_aprobar: true }); setComprobante(null); }}>✅ Aprobar</button>
+              <button className="btn-acento" onClick={() => { rpc('revisar_pago', { p_cita: comprobante.cita.id, p_aprobar: true }); notificar('cita_confirmada', comprobante.cita.id); setComprobante(null); }}>✅ Aprobar</button>
             </div>
           </div>
         )}
