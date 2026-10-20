@@ -28,10 +28,9 @@ const faqLd = {
   <Inicio client:only="react" />
   {/* Contenido rastreable sin JS: H1 + servicios y precios (también en el JSON-LD). */}
   <h1 class="sr-only">El Estadio Barbería (El Estadio Barberia) — Barbería / Barberia en {zona}, Tacna</h1>
-  <details class="mt-10 max-w-prose rounded-xl border border-[var(--borde)] px-4 py-3 text-sm text-base-500">
-    <summary class="cursor-pointer font-semibold text-[var(--texto)]">Sobre El Estadio Barbería</summary>
-    <p class="mt-3"><b>El Estadio Barbería</b> (también escrita <b>El Estadio Barberia</b>, <i>Estadio Barbería Tacna</i> o <i>elestadiobarberia</i>) es una barbería en {zona}, Tacna, especializada en cortes clásicos, fades, degradados y perfilado de barba. Reserva en línea, mira en vivo qué barbero está libre, entra a la cola de espera y paga con Yape o Plin. Si buscas la mejor barbería en Tacna, mejor barberia Tacna o “barbería Tacna cerca de mí”, estás en el lugar correcto.</p>
-  </details>
+  <div class="sr-only">
+    <p><b>El Estadio Barbería</b> (también escrita <b>El Estadio Barberia</b>, <i>Estadio Barbería Tacna</i> o <i>elestadiobarberia</i>) es una barbería en {zona}, Tacna, especializada en cortes clásicos, fades, degradados y perfilado de barba. Reserva en línea, mira en vivo qué barbero está libre, entra a la cola de espera y paga con Yape o Plin. Si buscas la mejor barbería en Tacna, mejor barberia Tacna o “barbería Tacna cerca de mí”, estás en el lugar correcto.</p>
+  </div>
   <section class="mt-10" aria-labelledby="servicios">
     <h2 id="servicios" class="titulo text-xl mb-3">Servicios y precios</h2>
     {servicios.length ? (
