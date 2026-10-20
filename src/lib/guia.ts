@@ -12,7 +12,10 @@ const TOURS: Record<Rol, Paso[]> = {
   ],
   admin: [
     { el: '[data-guia="tab-agenda"]', titulo: 'Citas', texto: 'Aquí llegan las reservas y los pagos por validar.' },
-    { el: '[data-guia="tab-equipo"]', titulo: 'Barberos', texto: 'Agrega barberos: se crea su usuario y clave, y les llega el correo si lo pusiste.' },
+    { el: '[data-guia="tab-equipo"]', titulo: 'Barberos', texto: 'Agrega barberos y su usuario y clave. Solo tú asignas permisos: un administrador de confianza o módulos sueltos.' },
+    { el: '[data-guia="tab-local"]', titulo: 'Local', texto: 'Datos del local, horario, Yape/Plin, QR de pago y logo. Aquí también publicas la ficha en Google.' },
+    { el: '[data-guia="tab-productos"]', titulo: 'Productos', texto: 'Productos a la venta: precio, stock y si están publicados.' },
+    { el: '[data-guia="tab-festivos"]', titulo: 'Festivos', texto: 'Temas especiales para fechas festivas en la web pública.' },
     { el: '[data-guia="tab-servicios"]', titulo: 'Servicios', texto: 'Define cortes, precios y duración.' },
     { el: '[data-guia="tab-pisos"]', titulo: 'Pisos 3D', texto: 'Diseña el local y asigna cada barbero a su silla.' },
     { el: '[data-guia="tab-clientes"]', titulo: 'Clientes', texto: 'Lista de clientes con su cartilla de premios y su historial.' },

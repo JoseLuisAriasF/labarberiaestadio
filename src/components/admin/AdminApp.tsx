@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, Gift, LayoutGrid, LogOut, MapPin, Menu, Package, PartyPopper, Scissors, ShieldCheck, UserCheck, Users, Wallet, X } from 'lucide-react';
+import { BarChart3, CalendarDays, CircleHelp, Gift, LayoutGrid, LogOut, MapPin, Menu, Moon, Package, PartyPopper, Scissors, ShieldCheck, Sun, UserCheck, Users, Wallet, X } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
 import BarberApp from '../barber/BarberApp';
 import { iniciarGuia } from '@/lib/guia';
@@ -40,6 +40,24 @@ const MODULO_DE: Partial<Record<Tab, string>> = {
   agenda: 'agenda', equipo: 'equipo', servicios: 'servicios', pisos: 'pisos', clientes: 'clientes', lealtad: 'lealtad',
   productos: 'productos', finanzas: 'finanzas', estadisticas: 'estadisticas', local: 'local', festivos: 'festivos',
 };
+/** Claro u oscuro: el mismo interruptor que la web pública (clave be:tema). */
+function AlternarTema() {
+  const [oscuro, setOscuro] = useState(() => document.documentElement.classList.contains('dark'));
+  function cambiar() {
+    const nuevo = !oscuro;
+    setOscuro(nuevo);
+    try { localStorage.setItem('be:tema', nuevo ? 'dark' : 'light'); } catch { /* sin almacenamiento */ }
+    document.documentElement.dataset.tema = nuevo ? 'dark' : 'light';
+    document.documentElement.classList.toggle('dark', nuevo);
+  }
+  return (
+    <button type="button" onClick={cambiar} aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      className="grid size-10 place-items-center rounded-lg text-white hover:bg-white/10">
+      {oscuro ? <Sun className="size-5" /> : <Moon className="size-5" />}
+    </button>
+  );
+}
+
 type Acceso = string[] | 'todos' | null;
 const accesoA = (id: Tab, p: Acceso) => {
   if (p === null) return false;
@@ -130,7 +148,13 @@ export default function AdminApp() {
           {menuAbierto ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
         <span className="text-sm font-semibold text-white truncate">{barberia.nombre}</span>
-        <span className="text-xs text-acento-400 ml-auto">{TABS.find((t) => t.id === tab)?.t}</span>
+        <div className="ml-auto flex items-center gap-1">
+          <AlternarTema />
+          <button type="button" onClick={() => iniciarGuia('admin')} aria-label="Ayuda: qué hace cada sección"
+            className="grid size-10 place-items-center rounded-lg text-white hover:bg-white/10">
+            <CircleHelp className="size-5" />
+          </button>
+        </div>
       </div>
       {menuAbierto && (
         <>
