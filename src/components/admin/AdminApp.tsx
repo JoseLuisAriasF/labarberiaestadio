@@ -8,7 +8,8 @@ import type { Premio, Producto, Servicio } from '@/lib/tipos';
 import { soles } from '@/lib/tipos';
 import Agenda from '../Agenda';
 import ClientesPanel from '../ClientesPanel';
-import { Aviso, Cargando } from '../ui';
+import { Aviso, Cargando, Hoja } from '../ui';
+import { AYUDA } from '@/lib/ayuda';
 import Crud from './Crud';
 import Equipo from './Equipo';
 import Estadisticas from './Estadisticas';
@@ -71,6 +72,7 @@ export default function AdminApp() {
   const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>(() => (location.hash.slice(1) as Tab) || 'agenda');
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [ayuda, setAyuda] = useState(false);
   // Dueño: todo. Administrador delegado o barbero con módulos: solo lo que le dio el dueño.
   const [esDueno, setEsDueno] = useState(true);
   const [permitidos, setPermitidos] = useState<Acceso>(null);
@@ -124,6 +126,9 @@ export default function AdminApp() {
         ))}
       </div>
       <div className="p-3 border-t border-white/5">
+        <button onClick={() => setAyuda(true)} className="w-full rounded-lg px-3 py-2 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+          ❔ Ayuda de esta sección
+        </button>
         <button onClick={() => iniciarGuia('admin')} className="w-full rounded-lg px-3 py-2 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
           ¿Cómo uso el panel?
         </button>
@@ -150,7 +155,7 @@ export default function AdminApp() {
         <span className="text-sm font-semibold text-white truncate">{barberia.nombre}</span>
         <div className="ml-auto flex items-center gap-1">
           <AlternarTema />
-          <button type="button" onClick={() => iniciarGuia('admin')} aria-label="Ayuda: qué hace cada sección"
+          <button type="button" onClick={() => setAyuda(true)} aria-label="Ayuda de esta sección"
             className="grid size-10 place-items-center rounded-lg text-white hover:bg-white/10">
             <CircleHelp className="size-5" />
           </button>
@@ -180,7 +185,7 @@ export default function AdminApp() {
 
       {/* Content */}
       <div className="flex-1 min-w-0 lg:px-6 px-4 py-4 pb-24 lg:py-6 lg:pb-6 lg:mt-0 mt-14">
-        <div className="max-w-5xl mx-auto grid gap-4">
+        <div className="w-full grid gap-4">
           {barberia.plan === 'TRIAL' && (
             <Aviso tipo={dias > 7 ? 'info' : 'error'}>
               {dias > 0 ? `🎁 Periodo de prueba: te quedan ${dias} días gratis (hasta el ${new Date(barberia.trial_ends_at).toLocaleDateString('es-PE')}).`
@@ -236,6 +241,21 @@ export default function AdminApp() {
           {tab === 'festivos' && <Festivos datos={datos} recargar={recargar} />}
         </div>
       </div>
+      <Hoja abierta={ayuda} onClose={() => setAyuda(false)} titulo={`Ayuda: ${AYUDA[tab]?.titulo ?? 'sección'}`} ancho="sm:max-w-2xl">
+        {AYUDA[tab] && (
+          <div className="grid gap-5 text-sm">
+            <p className="text-[var(--texto-suave)]">{AYUDA[tab].resumen}</p>
+            {AYUDA[tab].secciones.map((sec) => (
+              <section key={sec.titulo} className="grid gap-2">
+                <h3 className="titulo text-base">{sec.titulo}</h3>
+                <ul className="grid list-disc gap-1.5 pl-5">
+                  {sec.items.map((it) => <li key={it}>{it}</li>)}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )}
+      </Hoja>
     </div>
   );
 }
