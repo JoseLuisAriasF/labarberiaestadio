@@ -49,9 +49,19 @@ export default function Perfil() {
       <h1 className="titulo text-xl">Tu perfil de cliente</h1>
       <p className="text-sm text-base-500">Tus citas, tu tarjeta de lealtad y tus cupones, en un solo lugar.</p>
       <BotonGoogle onClick={entrarConGoogle} />
+      <a href="/acceso" className="btn w-full">Entrar con celular y clave</a>
     </div>
   );
   if (!cliente) return <div className="max-w-sm mx-auto neu rounded-3xl p-6"><h1 className="titulo text-xl mb-4">Completa tu registro</h1><RegistroDni email={user.email} onListo={setCliente} /></div>;
+
+  async function guardarEmail(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    setError('');
+    const { data, error } = await supabase.rpc('cliente_actualizar_email', { p_email: String(f.get('email')).trim() });
+    if (error) return setError(msg(error));
+    setCliente(data as any);
+  }
 
   async function cancelar(id: string) {
     if (!confirm('¿Cancelar esta cita?')) return;
@@ -79,13 +89,22 @@ export default function Perfil() {
         {user.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} alt="" className="size-14 rounded-full" referrerPolicy="no-referrer" />}
         <div className="flex-1 min-w-0">
           <h1 className="titulo text-xl truncate">Hola, {cliente.nombre?.split(' ')[0] || 'crack'} 👋</h1>
-          <p className="text-xs text-base-500">DNI ••••{cliente.dni.slice(-3)} · {cliente.email}</p>
+          <p className="text-xs text-base-500">{cliente.dni ? `DNI ••••${cliente.dni.slice(-3)}` : cliente.telefono ? `Cel. ${cliente.telefono}` : ''}{cliente.email ? ` · ${cliente.email}` : ''}</p>
         </div>
         <Insignia verificado={cliente.estado_verificacion === 'VERIFIED_100'} />
         <button className="btn !py-1.5 text-xs" onClick={() => supabase.auth.signOut().then(() => location.reload())}>Salir</button>
       </section>
       {cliente.estado_verificacion === 'UNVERIFIED' && (
         <Aviso tipo="info">Para quedar 100% verificado: paga tu primera reserva por Yape/Plin, o pide en el local que validen tu DNI. Así tus próximas citas se confirman al instante.</Aviso>
+      )}
+      {!cliente.email && (
+        <form onSubmit={guardarEmail} className="panel grid gap-2">
+          <p className="text-sm font-semibold">📧 Añade tu correo para recibir avisos de tus citas</p>
+          <label className="flex gap-2">
+            <input name="email" type="email" required autoComplete="email" placeholder="tu@correo.com" className="campo flex-1" />
+            <button className="btn-acento">Guardar</button>
+          </label>
+        </form>
       )}
       {error && <Aviso>{error}</Aviso>}
 

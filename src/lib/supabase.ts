@@ -27,6 +27,10 @@ export function slugActual(): string | null {
 export const emailStaff = (codigo: string, usuario: string) =>
   `${usuario.trim().toLowerCase()}.${codigo.trim().toLowerCase()}@staff.labarberiaestadio.pages.dev`;
 
+/** Email sintético del cliente a partir de su celular (su usuario público). */
+export const emailCliente = (celular: string) =>
+  `${celular.replace(/\D/g, '')}@cliente.labarberiaestadio.pages.dev`;
+
 /** Mensaje legible de un error de Supabase/Postgres (los RAISE ya vienen en español). */
 const AYUDA: [RegExp, string][] = [
   [/is of type jsonb|invalid input syntax for type json/i, 'Un dato no tiene el formato correcto. Revisa los campos (horario, especialidades) y vuelve a guardar. Si sigue, recarga la página.'],

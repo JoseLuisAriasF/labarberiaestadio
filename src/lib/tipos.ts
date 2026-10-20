@@ -26,7 +26,7 @@ export interface Barbero {
 export interface Servicio { id: string; barberia_id: string; nombre: string; descripcion?: string | null; precio_base: number; duracion_min: number; foto_url?: string | null; activo: boolean }
 export interface BarberoServicio { barbero_id: string; servicio_id: string; es_bestseller: boolean }
 export interface Producto { id: string; barberia_id: string; nombre: string; descripcion?: string | null; categoria?: string | null; precio: number; stock: number; imagen_url?: string | null; activo: boolean }
-export interface Cliente { id: string; usuario_id: string; nombre: string | null; email: string | null; telefono: string | null; dni: string; estado_verificacion: 'UNVERIFIED' | 'VERIFIED_100' }
+export interface Cliente { id: string; usuario_id: string; nombre: string | null; email: string | null; telefono: string | null; dni: string | null; estado_verificacion: 'UNVERIFIED' | 'VERIFIED_100' }
 export type EstadoCita = 'PENDIENTE_PAGO' | 'CONFIRMADA' | 'EN_COLA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA' | 'RECHAZADA' | 'NO_ASISTIO';
 export interface Cita {
   id: string; barberia_id: string; barbero_id: string; cliente_id: string | null; servicio_id: string | null;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { supabase, suscribirPush } from './supabase';
+import { emailCliente, supabase, suscribirPush } from './supabase';
 import type { Cliente } from './tipos';
 
 /** Sesión del cliente (Google) + su ficha con DNI, si ya la creó. */
@@ -37,3 +37,18 @@ export const entrarConGoogle = () =>
     provider: 'google',
     options: { redirectTo: location.href, queryParams: { prompt: 'select_account' } },
   });
+
+/** Login de cliente por celular (usuario) + clave: email sintético, mismo truco que staff. */
+export const entrarConCelular = (celular: string, clave: string) =>
+  supabase.auth.signInWithPassword({ email: emailCliente(celular), password: clave });
+
+/** Crea cuenta de cliente con celular+clave y guarda su ficha (nombre+telefono). */
+export async function crearCuentaCliente(nombre: string, celular: string, clave: string) {
+  const up = await supabase.auth.signUp({ email: emailCliente(celular), password: clave });
+  if (up.error) return up;
+  if (up.data.user) {
+    await supabase.rpc('registrar_cliente_celular', { p_nombre: nombre, p_telefono: celular });
+    suscribirPush();
+  }
+  return up;
+}

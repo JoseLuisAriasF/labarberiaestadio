@@ -45,9 +45,12 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   const [hora, setHora] = useState<string | undefined>(borrador?.hora);
 
   const [modo, setModo] = useState<Modo>('ADELANTO');
-  // Reserva anónima: sin DNI. Solo con adelanto, porque el barbero no conoce a esa persona.
+  // Reserva sin cuenta (!user): nombre + celular. El modo elige si paga adelantado o si "ya le conoce".
+  const [sinCuenta, setSinCuenta] = useState(false);
+  // Reserva anónima (user con Google, sin DNI): nombre + comprobante.
   const [anonimo, setAnonimo] = useState(false);
   const [nombreAnon, setNombreAnon] = useState('');
+  const [celularAnon, setCelularAnon] = useState('');
   const [metodo, setMetodo] = useState<'YAPE' | 'PLIN'>('YAPE');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -81,7 +84,7 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
 
   if (servicios.length === 0) return <Aviso tipo="info">Este barbero aún no tiene servicios publicados.</Aviso>;
   if (hecho) return (
-    <Listo barbero={barbero} nombre={cliente?.nombre ?? nombreAnon.trim()} dni={cliente?.dni} servicio={servicio!.nombre} precio={hecho.precio} fecha={fecha} hora={hora!}
+    <Listo barbero={barbero} nombre={cliente?.nombre ?? nombreAnon.trim()} dni={cliente?.dni ?? undefined} servicio={servicio!.nombre} precio={hecho.precio} fecha={fecha} hora={hora!}
       duracion={servicio!.duracion_min} resultado={hecho.resultado} onListo={onListo} />
   );
 
@@ -92,15 +95,31 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
     ? { a: barberia.titular_pago || barberia.nombre, yape: barberia.yape_numero, plin: barberia.plin_numero, qr: barberia.qr_pago_url }
     : { a: barbero.nombre, yape: barbero.yape_numero, plin: barbero.plin_numero, qr: null };
   const cerradoHoy = !barbero.horario_atencion[String(isoDow(fecha))];
-  const sinAdelanto = !verificado && !anonimo && modo === 'CONOCIDO';
-  const pideAdelanto = anonimo || (!verificado && modo === 'ADELANTO');
+  // Sin cuenta: siempre CONOCIDO (el barbero confirma por WhatsApp; adelanto se gestiona por WhatsApp fuera del sistema).
+  const sinAdelanto = sinCuenta ? true : (!verificado && !anonimo && modo === 'CONOCIDO');
+  const pideAdelanto = sinCuenta ? false : (anonimo || (!verificado && modo === 'ADELANTO'));
 
   async function confirmar() {
-    if (!servicio || !hora || !user || (!cliente && !anonimo)) return;
+    if (!servicio || !hora) return;
+    if (!sinCuenta && (!user || (!cliente && !anonimo))) return;
     setEnviando(true); setError('');
     try {
       let ruta: string | null = null;
-      if (archivo && !sinAdelanto) ruta = (await subirImagen('comprobantes', `${barberia.id}/${user.id}`, archivo)).ruta;
+      // Reserva sin cuenta: nombre + celular. Barbero confirma por WhatsApp (sin subir comprobante al sistema).
+      if (sinCuenta) {
+        if (nombreAnon.trim().length < 2) throw new Error('Escribe tu nombre');
+        const tel = celularAnon.replace(/\D/g, '');
+        if (tel.length < 6) throw new Error('El celular no es válido');
+        const inicio = new Date(`${fecha}T${hora}:00-05:00`).toISOString();
+        const { error } = await supabase.rpc('reservar_cita_sin_cuenta', {
+          p_barbero: barbero.id, p_servicio: servicio.id, p_inicio: inicio,
+          p_nombre: nombreAnon.trim(), p_telefono: tel,
+        });
+        if (error) throw error;
+        sessionStorage.removeItem(BORRADOR);
+        return setHecho({ resultado: 'SIN_ADELANTO', precio });
+      }
+      if (archivo && !sinAdelanto) ruta = (await subirImagen('comprobantes', `${barberia.id}/${user!.id}`, archivo)).ruta;
       const inicio = new Date(`${fecha}T${hora}:00-05:00`).toISOString();
       if (anonimo) {
         if (!ruta) throw new Error('Adjunta la captura de tu Yape/Plin para reservar sin DNI');
@@ -181,12 +200,16 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
       {hora && servicio && (
         <section ref={paso3} className="grid gap-3 scroll-mt-4">
           <h3 className="paso"><span>3</span> Confirma tus datos</h3>
-          {cargando ? <Cargando /> : !user ? (
+          {cargando ? <Cargando /> : !user && !sinCuenta ? (
             <>
-              <p className="text-sm text-base-400">Inicia sesión para guardar tu cita y sumar cortes a tu tarjeta de lealtad.</p>
+              <p className="text-sm text-base-400">Guarda tu cita y suma cortes a tu tarjeta de lealtad iniciando sesión, o reserva solo con tu nombre y celular.</p>
               <BotonGoogle onClick={() => { guardarBorrador({ barberoId: barbero.id, servicioId, fecha, hora }); entrarConGoogle(); }} />
+              <a href="/acceso" className="btn w-full text-center">Entrar con celular y clave</a>
+              <button type="button" onClick={() => setSinCuenta(true)} className="text-sm text-base-400 underline underline-offset-4 py-1">
+                Prefiero reservar solo con mi nombre y celular
+              </button>
             </>
-          ) : !cliente && !anonimo ? (
+          ) : user && !cliente && !anonimo ? (
             <>
               <RegistroDni email={user.email} onListo={setCliente} />
               <button type="button" onClick={() => setAnonimo(true)} className="text-sm text-base-400 underline underline-offset-4 py-1">
@@ -195,7 +218,23 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
             </>
           ) : (
             <>
-              {anonimo ? (
+              {sinCuenta ? (
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-semibold">Reserva sin cuenta</span>
+                    <button type="button" onClick={() => setSinCuenta(false)} className="text-xs text-acento-400 underline underline-offset-4">Mejor iniciar sesión</button>
+                  </div>
+                  <label>
+                    <span className="etiqueta">Tu nombre</span>
+                    <input value={nombreAnon} onChange={(e) => setNombreAnon(e.target.value)} maxLength={60} autoComplete="name" className="campo" placeholder="Ej. Carlos" />
+                  </label>
+                  <label>
+                    <span className="etiqueta">Tu celular (para que el barbero te confirme)</span>
+                    <input value={celularAnon} onChange={(e) => setCelularAnon(e.target.value)} inputMode="tel" autoComplete="tel" pattern="[0-9 +]{6,15}" className="campo" placeholder="9xx xxx xxx" />
+                  </label>
+                  <span className="text-xs text-base-500">No creas cuenta: no sumas cortes a tu tarjeta de lealtad.</span>
+                </div>
+              ) : anonimo ? (
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="font-semibold">Reserva anónima · sin DNI</span>
@@ -209,7 +248,7 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2 text-sm">
-                  <span>{cliente!.nombre} · DNI ••••{cliente!.dni.slice(-3)}</span>
+                  <span>{cliente!.nombre} · {cliente!.dni ? `DNI ••••${cliente!.dni.slice(-3)}` : `Cel. ${cliente!.telefono ?? ''}`}</span>
                   <Insignia verificado={verificado} />
                 </div>
               )}
@@ -223,7 +262,12 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 </label>
               )}
 
-              {!verificado && !anonimo && (
+              {sinCuenta && (
+                <p className="text-xs text-base-500 panel">
+                  {barbero.nombre} te confirmará por WhatsApp. Si quieres adelantar con Yape o Plin, envíale el comprobante al mismo WhatsApp — no hace falta subirlo aquí.
+                </p>
+              )}
+              {!sinCuenta && !verificado && !anonimo && (
                 <div role="radiogroup" aria-label="Cómo reservar" className="grid gap-2">
                   {([
                     { v: 'ADELANTO', t: 'Pago adelantado', d: `Confirmación inmediata al validar tu Yape o Plin (${soles(precio)}).` },
@@ -273,7 +317,8 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
               {error && <Aviso>{error}</Aviso>}
               {(() => {
                 // Muestra qué falta en vez de un botón gris sin explicación.
-                const falta = anonimo && nombreAnon.trim().length < 2 ? 'escribe tu nombre'
+                const falta = (sinCuenta || anonimo) && nombreAnon.trim().length < 2 ? 'escribe tu nombre'
+                  : sinCuenta && celularAnon.replace(/\D/g, '').length < 6 ? 'escribe tu celular'
                   : pideAdelanto && !archivo ? 'sube la captura de tu pago' : '';
                 return (
                   <>
