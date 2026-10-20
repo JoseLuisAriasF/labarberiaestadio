@@ -42,13 +42,17 @@ export const entrarConGoogle = () =>
 export const entrarConCelular = (celular: string, clave: string) =>
   supabase.auth.signInWithPassword({ email: emailCliente(celular), password: clave });
 
-/** Crea cuenta de cliente con celular+clave y guarda su ficha (nombre+telefono). */
+/** Crea cuenta de cliente con celular+clave. El endpoint usa service key para auto-confirmar
+    el email (es ficticio, no llega ningún correo). Luego entra y crea su ficha. */
 export async function crearCuentaCliente(nombre: string, celular: string, clave: string) {
-  const up = await supabase.auth.signUp({ email: emailCliente(celular), password: clave });
-  if (up.error) return up;
-  if (up.data.user) {
-    await supabase.rpc('registrar_cliente_celular', { p_nombre: nombre, p_telefono: celular });
-    suscribirPush();
-  }
-  return up;
+  const r = await fetch('/api/registro-cliente', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre, celular, clave }),
+  }).then((x) => x.json() as Promise<{ ok?: boolean; error?: string }>).catch(() => ({ error: 'Sin conexión' }));
+  if (r.error) return { error: { message: r.error } as const };
+  const si = await supabase.auth.signInWithPassword({ email: emailCliente(celular), password: clave });
+  if (si.error) return si;
+  await supabase.rpc('registrar_cliente_celular', { p_nombre: nombre, p_telefono: celular });
+  suscribirPush();
+  return si;
 }
