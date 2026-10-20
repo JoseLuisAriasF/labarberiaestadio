@@ -247,9 +247,12 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                   <span className="text-xs text-base-500">No guardamos tu DNI ni sumas cortes a tu tarjeta de lealtad.</span>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span>{cliente!.nombre} · {cliente!.dni ? `DNI ••••${cliente!.dni.slice(-3)}` : `Cel. ${cliente!.telefono ?? ''}`}</span>
-                  <Insignia verificado={verificado} />
+                <div className="grid gap-1">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span>{cliente!.nombre} · {cliente!.dni ? `DNI ••••${cliente!.dni.slice(-3)}` : `Cel. ${cliente!.telefono ?? ''}`}</span>
+                    <Insignia verificado={verificado} />
+                  </div>
+                  {!cliente!.dni && <span className="text-xs text-base-500">Puedes añadir tu DNI y correo después desde tu perfil.</span>}
                 </div>
               )}
 

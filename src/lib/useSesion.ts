@@ -12,6 +12,12 @@ export function useSesion() {
   const cargarCliente = useCallback(async (u: User | null) => {
     if (!u) { setCliente(null); return; }
     const { data } = await supabase.from('clientes').select('*').eq('usuario_id', u.id).maybeSingle();
+    if (!data && u.email?.endsWith('@cliente.labarberiaestadio.pages.dev')) {
+      const nombre = String(u.user_metadata?.nombre ?? '').trim() || 'Cliente';
+      const creada = await supabase.rpc('registrar_cliente_celular', { p_nombre: nombre, p_telefono: u.email.split('@')[0] });
+      setCliente(creada.data as Cliente | null);
+      return;
+    }
     setCliente(data);
   }, []);
 
