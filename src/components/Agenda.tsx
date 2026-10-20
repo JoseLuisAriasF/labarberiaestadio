@@ -277,6 +277,23 @@ function Completar({ cita, barberiaId, onListo }: { cita: Cita; barberiaId: stri
 }
 
 function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: string; barberos: Barbero[]; servicios: Servicio[]; onListo: () => void }) {
+  // Lo que más hace cada barbero sale primero: se busca más rápido en la lista.
+  const [barberoId, setBarberoId] = useState(barberos[0]?.id ?? '');
+  const [servicioId, setServicioId] = useState('');
+  const [conteo, setConteo] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!barberoId) return;
+    supabase.from('citas').select('servicio_id').eq('barbero_id', barberoId).eq('estado', 'COMPLETADA')
+      .order('fecha_hora', { ascending: false }).limit(500)
+      .then(({ data }) => {
+        const c: Record<string, number> = {};
+        for (const r of (data ?? []) as { servicio_id: string | null }[]) if (r.servicio_id) c[r.servicio_id] = (c[r.servicio_id] ?? 0) + 1;
+        setConteo(c);
+        const orden = [...servicios].sort((a, b) => (c[b.id] ?? 0) - (c[a.id] ?? 0) || a.precio_base - b.precio_base);
+        setServicioId(orden[0]?.id ?? '');
+      });
+  }, [barberoId, servicios]);
+  const ordenServicios = [...servicios].sort((a, b) => (conteo[b.id] ?? 0) - (conteo[a.id] ?? 0) || a.precio_base - b.precio_base);
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
   // Dos modos excluyentes: cada uno muestra solo sus campos. Cambiar de modo limpia lo anterior.
@@ -366,8 +383,8 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
     const f = new FormData(e.currentTarget);
     setEnviando(true); setError('');
     const { error } = await supabase.rpc('agregar_walkin', {
-      p_barbero: f.get('barbero'), p_nombre: nombre.trim() || 'Anónimo',
-      p_dni: anonimo ? null : dni.trim(), p_servicio: f.get('servicio') || null, p_tipo: tipo,
+      p_barbero: barberoId, p_nombre: nombre.trim() || 'Anónimo',
+      p_dni: anonimo ? null : dni.trim(), p_servicio: servicioId || null, p_tipo: tipo,
     });
     setEnviando(false);
     if (error) setError(msg(error)); else onListo();
@@ -459,9 +476,9 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
       )}
 
       <label><span className="etiqueta">Barbero</span>
-        <select name="barbero" className="campo">{barberos.map((b) => <option key={b.id} value={b.id}>{b.nombre} {b.cola ? `(cola ${b.cola})` : ''}</option>)}</select></label>
+        <select value={barberoId} onChange={(e) => setBarberoId(e.target.value)} className="campo">{barberos.map((b) => <option key={b.id} value={b.id}>{b.nombre} {b.cola ? `(cola ${b.cola})` : ''}</option>)}</select></label>
       <label><span className="etiqueta">Servicio</span>
-        <select name="servicio" className="campo">{servicios.map((s) => <option key={s.id} value={s.id}>{s.nombre} · {soles(s.precio_base)}</option>)}</select></label>
+        <select value={servicioId} onChange={(e) => setServicioId(e.target.value)} className="campo">{ordenServicios.map((s) => <option key={s.id} value={s.id}>{conteo[s.id] ? `⭐ ${s.nombre}` : s.nombre} · {soles(s.precio_base)}{conteo[s.id] ? ` · ${conteo[s.id]} hechos` : ''}</option>)}</select></label>
       {error && <Aviso>{error}</Aviso>}
       <button disabled={enviando || barberos.length === 0} className="btn-acento">{enviando ? 'Agregando…' : 'Agregar a la cola'}</button>
     </form>
