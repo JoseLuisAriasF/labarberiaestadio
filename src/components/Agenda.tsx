@@ -153,15 +153,24 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="neu-inset rounded-xl p-2"><p className="text-base font-semibold tabular-nums sm:text-xl">{vivas.length}</p><p className="text-[11px] text-base-500">citas</p></div>
+        <div className={`neu-inset rounded-xl p-2 ${pendientes.length > 0 ? 'ring-1 ring-amber-500/60' : ''}`}>
+          <p className="text-base font-semibold tabular-nums sm:text-xl">{pendientes.length > 0 ? pendientes.length : vivas.length}</p>
+          <p className="text-[11px] text-base-500">{pendientes.length > 0 ? 'por validar' : 'activas'}</p>
+        </div>
         <div className="neu-inset rounded-xl p-2"><p className="text-base font-semibold tabular-nums sm:text-xl">{citas.filter((c) => c.estado === 'COMPLETADA').length}</p><p className="text-[11px] text-base-500">atendidos</p></div>
-        <div className="neu-inset rounded-xl p-2"><p className="text-base font-semibold tabular-nums sm:text-xl">{soles(cobrado)}</p><p className="text-[11px] text-base-500">facturado</p></div>
+        <div className="neu-inset rounded-xl p-2"><p className="text-base font-semibold tabular-nums sm:text-xl">{soles(cobrado)}</p><p className="text-[11px] text-base-500">cobrado</p></div>
       </div>
       {error && <Aviso>{error}</Aviso>}
       <ul className="grid gap-2">
         {cargando && [0, 1, 2].map((i) => <Esqueleto key={i} className="h-16" />)}
         {!cargando && visibles.map((c) => <Fila key={c.id} c={c} />)}
-        {!cargando && visibles.length === 0 &&<p className="text-sm text-base-400 text-center py-8">{verTodo ? 'Sin citas este día.' : 'No hay citas pendientes ni en cola.'}</p>}
+        {!cargando && visibles.length === 0 && (
+          <li className="grid justify-items-center gap-1.5 rounded-2xl border border-dashed border-[var(--borde)] py-10 text-center">
+            <span className="text-3xl" aria-hidden="true">{verTodo ? '📭' : '☕'}</span>
+            <p className="text-sm font-semibold">{verTodo ? 'Sin citas este día' : 'Nada pendiente por ahora'}</p>
+            <p className="text-xs text-base-500">¿Llegó alguien sin cita? Anótalo con <b>Walk-in</b>.</p>
+          </li>
+        )}
       </ul>
 
       <Hoja abierta={!!comprobante} onClose={() => setComprobante(null)} titulo="Comprobante de pago">
