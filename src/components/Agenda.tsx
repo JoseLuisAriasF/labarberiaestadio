@@ -466,8 +466,10 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
           )}
           <label><span className="etiqueta">Nombre y apellidos</span>
             <input value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={2} maxLength={60} className="campo" /></label>
-          <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
-            <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" maxLength={15} className="campo" placeholder="9xx xxx xxx" /></label>
+          {!existente && !registrado && (
+            <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
+              <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" maxLength={15} className="campo" placeholder="9xx xxx xxx" /></label>
+          )}
           {existente ? (
             <p className="text-sm font-semibold text-emerald-500">✅ Ya está registrado{existente.nombre ? `: ${existente.nombre}` : ''}. No hace falta registrarlo otra vez.</p>
           ) : registrado ? (
