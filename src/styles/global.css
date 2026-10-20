@@ -140,6 +140,12 @@
   background: var(--tarjeta); color: var(--texto); border: 1px solid var(--borde); border-radius: 16px;
   font-family: inherit; max-width: 360px;
 }
+/* En celular el recuadro de la guía no tapa la pantalla: ancho de la pantalla y alto limitado con desplazamiento. */
+@media (max-width: 640px) {
+  .guia-tour.driver-popover { max-width: calc(100vw - 24px); max-height: 60dvh; overflow-y: auto; font-size: 0.9rem; }
+  .guia-tour .driver-popover-title { font-size: 1.25rem; }
+  .guia-tour .driver-popover-description { font-size: 0.9rem; }
+}
 .guia-tour .driver-popover-title { font-family: theme(fontFamily.display); font-size: 1.6rem; letter-spacing: 0.02em; color: var(--texto); }
 .guia-tour .driver-popover-description { font-size: 0.95rem; line-height: 1.5; color: var(--texto-suave); }
 .guia-tour .driver-popover-progress-text { color: var(--texto-suave); }

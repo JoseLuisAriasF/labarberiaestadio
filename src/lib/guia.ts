@@ -79,30 +79,24 @@ export async function iniciarGuia(rol: Rol) {
   }).drive();
 }
 
-const bloque = (secs: { titulo: string; items: string[] }[]) =>
-  secs.map((s) => `<b>${s.titulo}</b><ul style="margin:.3em 0 .6em;padding-left:1.1em;list-style:disc">${s.items.map((i) => `<li>${i}</li>`).join('')}</ul>`).join('');
-
-/** Ayuda guiada de la vista abierta: resalta cada bloque de la pantalla con driver.js y explica qué hace. */
+/** Ayuda guiada de la vista abierta: un paso por cada punto, para que el texto quepa en el celular. */
 export async function iniciarAyudaVista(vista: string) {
   const ayuda = AYUDA[vista];
   if (!ayuda) return;
   await cargarDriver();
   const driver = (window as unknown as DriverGlobal).driver!.js!.driver;
   const steps: { element?: string; popover: { title: string; description: string } }[] = [];
-  let pendientes: typeof ayuda.secciones = [];
+  let ultimo = `[data-vista="${vista}"]`;
   for (const sec of ayuda.secciones) {
     const el = EL_AYUDA[vista]?.[sec.titulo];
-    if (el && document.querySelector(el)) {
-      steps.push({ element: el, popover: { title: sec.titulo, description: bloque([...pendientes, sec]) } });
-      pendientes = [];
-    } else {
-      pendientes.push(sec);
-    }
+    const destino = el && document.querySelector(el) ? el : ultimo;
+    ultimo = destino;
+    sec.items.forEach((texto, n) => {
+      const titulo = sec.items.length > 1 ? `${sec.titulo} (${n + 1}/${sec.items.length})` : sec.titulo;
+      steps.push({ element: destino, popover: { title: titulo, description: texto } });
+    });
   }
-  if (pendientes.length) {
-    if (steps.length) steps[steps.length - 1].popover.description += bloque(pendientes);
-    else steps.push({ element: `[data-vista="${vista}"]`, popover: { title: ayuda.titulo, description: `${ayuda.resumen}${bloque(pendientes)}` } });
-  }
+  if (steps.length === 0) return;
   driver({
     steps, showProgress: true, allowClose: true, smoothScroll: true, stagePadding: 6, stageRadius: 14,
     nextBtnText: 'Siguiente', prevBtnText: 'Atrás', doneBtnText: 'Listo', progressText: 'Paso {{current}} de {{total}}',
