@@ -287,6 +287,21 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
   const [buscando, setBuscando] = useState(false);
   const [frecuentes, setFrecuentes] = useState<{ nombre: string; dni: string }[]>([]);
   const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
+  const [telefono, setTelefono] = useState('');
+  const [registrado, setRegistrado] = useState(false);
+  const [registrando, setRegistrando] = useState(false);
+  // Cambiar el documento invalida el "ya registrado": nunca se registra solo, solo al pulsar el botón.
+  useEffect(() => setRegistrado(false), [dni, tipo]);
+
+  async function registrarSinCita() {
+    setError(''); setRegistrando(true);
+    const { error } = await supabase.rpc('barbero_registrar_cliente', {
+      p_dni: dni, p_tipo: tipo, p_nombre: nombre.trim(), p_telefono: telefono.trim(),
+    });
+    setRegistrando(false);
+    if (error) return setError(msg(error));
+    setRegistrado(true);
+  }
 
   function cambiarModo(m: 'DOCUMENTO' | 'ANONIMO') {
     setModo(m); setError(''); setDni(''); setNombre(''); setHistorial(null);
@@ -422,6 +437,16 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
           )}
           <label><span className="etiqueta">Nombre y apellidos</span>
             <input value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={2} maxLength={60} className="campo" /></label>
+          <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
+            <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" maxLength={15} className="campo" placeholder="9xx xxx xxx" /></label>
+          {registrado ? (
+            <p className="text-sm font-semibold text-emerald-500">✅ Cliente registrado. Puede vincular su cuenta entrando a la web con Google.</p>
+          ) : (
+            <button type="button" className="btn w-fit" onClick={registrarSinCita}
+              disabled={registrando || dni.length < (tipo === 'DNI' ? 8 : 6) || nombre.trim().length < 2}>
+              {registrando ? 'Registrando…' : '👤 Registrar cliente sin cita'}
+            </button>
+          )}
         </>
       )}
 
