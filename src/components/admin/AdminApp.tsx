@@ -35,22 +35,53 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
+/** Qué permiso de módulo abre cada sección (Mi jornada no pide ninguno). */
+const MODULO_DE: Partial<Record<Tab, string>> = {
+  agenda: 'agenda', equipo: 'equipo', servicios: 'servicios', pisos: 'pisos', clientes: 'clientes', lealtad: 'lealtad',
+  productos: 'productos', finanzas: 'finanzas', estadisticas: 'estadisticas', local: 'local', festivos: 'festivos',
+};
+type Acceso = string[] | 'todos' | null;
+const accesoA = (id: Tab, p: Acceso) => {
+  if (p === null) return false;
+  if (p === 'todos') return true;
+  const m = MODULO_DE[id];
+  return !m || p.includes(m);
+};
+
 export default function AdminApp() {
   const [barberiaId, setBarberiaId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>(() => (location.hash.slice(1) as Tab) || 'agenda');
   const [menuAbierto, setMenuAbierto] = useState(false);
+  // Dueño: todo. Administrador delegado o barbero con módulos: solo lo que le dio el dueño.
+  const [esDueno, setEsDueno] = useState(true);
+  const [permitidos, setPermitidos] = useState<Acceso>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return location.replace('/login');
       const { data } = await supabase.from('barberias').select('id').eq('owner_id', user.id).maybeSingle();
-      if (!data) return location.replace('/login');
-      setBarberiaId(data.id);
-      setUserId(user.id);
+      if (data) {
+        setBarberiaId(data.id); setUserId(user.id); setEsDueno(true); setPermitidos('todos');
+        return;
+      }
+      const { data: yo } = await supabase.from('barberos').select('barberia_id, es_admin, permisos')
+        .eq('usuario_id', user.id).eq('activo', true).maybeSingle();
+      const modulos = (yo?.permisos ?? []) as string[];
+      if (!yo || (!yo.es_admin && modulos.length === 0)) return location.replace('/login');
+      setBarberiaId(yo.barberia_id); setUserId(user.id); setEsDueno(false);
+      setPermitidos(yo.es_admin ? 'todos' : modulos);
     });
   }, []);
   useEffect(() => { history.replaceState(null, '', `#${tab}`); }, [tab]);
+  // Si la sección abierta no es suya (o viene del hash), salta a la primera que sí lo es.
+  useEffect(() => {
+    if (permitidos && !accesoA(tab, permitidos)) {
+      const primera = TABS.find((t) => accesoA(t.id, permitidos));
+      if (primera) setTab(primera.id);
+    }
+  }, [permitidos]);
+  const visibles = TABS.filter((t) => accesoA(t.id, permitidos));
 
   const { datos, recargar } = useBarberia({ id: barberiaId ?? undefined });
   if (!barberiaId || !datos) return <Cargando texto="Abriendo tu panel…" />;
@@ -67,7 +98,7 @@ export default function AdminApp() {
         <a href={`/?b=${barberia.codigo}`} target="_blank" className="text-xs text-acento-400 hover:text-acento-300 mt-1 inline-block">Ver web pública ↗</a>
       </div>
       <div className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
-        {TABS.map(({ id, t, I }) => (
+        {visibles.map(({ id, t, I }) => (
           <button key={id} onClick={() => ir(id)} data-guia={`tab-${id}`} aria-current={tab === id ? 'page' : undefined}
             className="w-full rounded-lg px-3 py-2.5 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors aria-[current=page]:bg-acento-500/15 aria-[current=page]:text-acento-400 aria-[current=page]:font-semibold">
             <I className="size-4 shrink-0" /> {t}
@@ -112,7 +143,7 @@ export default function AdminApp() {
 
       {/* Navegación inferior: pulgar a la mano en celular; "Más" abre el menú completo */}
       <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-        {TABS.filter((t) => PRINCIPALES.includes(t.id)).map(({ id, t, I }) => (
+        {visibles.filter((t) => PRINCIPALES.includes(t.id)).map(({ id, t, I }) => (
           <button key={id} onClick={() => ir(id)} aria-current={tab === id ? 'page' : undefined}
             className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold ${tab === id ? 'text-acento-400' : 'text-gray-400'}`}>
             <I className="size-5" />{t}
@@ -137,7 +168,7 @@ export default function AdminApp() {
             <Agenda barberia={barberia} barberos={datos.barberos} servicios={datos.servicios}
               puedeValidar={() => true} />
           )}
-          {tab === 'equipo' && <Equipo datos={datos} recargar={recargar} />}
+          {tab === 'equipo' && <Equipo datos={datos} recargar={recargar} esDueno={esDueno} />}
           {tab === 'servicios' && (
             <Crud<Servicio> tabla="servicios_cortes" barberiaId={barberia.id} titulo="Catálogo de cortes y servicios" orden="precio_base"
               campos={[

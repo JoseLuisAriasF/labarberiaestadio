@@ -18,6 +18,7 @@ export interface Barbero {
   id: string; barberia_id: string; usuario: string; nombre: string; avatar_url?: string | null; bio?: string | null;
   especialidades_bestseller: string[]; horario_atencion: Horario;
   estado: EstadoBarbero; estado_desde: string; estado_hasta: string | null; cola: number; presente: boolean;
+  es_admin?: boolean; permisos?: string[];
   comision_pct: number | null; yape_numero?: string | null; plin_numero?: string | null;
   email_real?: string | null; telefono_real?: string | null; whatsapp?: string | null;
   debe_cambiar_clave: boolean; activo: boolean; usuario_id?: string | null;

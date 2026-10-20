@@ -34,15 +34,23 @@ export default function BarberApp() {
   if (vivo.debe_cambiar_clave) return <CambiarClave onListo={() => { setYo({ ...yo, debe_cambiar_clave: false }); recargar(); }} />;
 
   const { barberia } = datos;
+  async function cerrarSesion() {
+    await supabase.auth.signOut();
+    location.replace('/login');
+  }
   return (
     <div className="grid gap-5 max-w-3xl mx-auto pb-28 sm:pb-0">
       <header className="flex items-center gap-3">
-        {vivo.avatar_url ? <img src={vivo.avatar_url} alt="" className="size-12 rounded-full object-cover" />
-          : <span className="size-12 rounded-full grid place-items-center bg-acento-500 text-white font-bold">{vivo.nombre.slice(0, 2).toUpperCase()}</span>}
-        <div className="flex-1">
+        {/* Tocar la foto o las iniciales abre "Mi perfil" para cambiar foto y datos. */}
+        <button type="button" onClick={() => setTab('perfil')} aria-label="Editar mi perfil" className="shrink-0 rounded-full ring-2 ring-transparent hover:ring-acento-500/60 transition">
+          {vivo.avatar_url ? <img src={vivo.avatar_url} alt="" className="size-12 rounded-full object-cover" />
+            : <span className="grid size-12 place-items-center rounded-full bg-acento-500 font-bold text-black">{vivo.nombre.slice(0, 2).toUpperCase()}</span>}
+        </button>
+        <div className="min-w-0 flex-1">
           <h1 className="titulo text-lg">Hola, {vivo.nombre.split(' ')[0]} ✂️</h1>
-          <p className="text-xs text-base-500">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
+          <p className="text-xs text-base-500 truncate">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
         </div>
+        <button type="button" onClick={cerrarSesion} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
       </header>
       <div className="flex justify-end -mb-2">
         <button type="button" onClick={() => iniciarGuia('barbero')} className="btn !py-1.5 text-xs">¿Cómo uso la app?</button>

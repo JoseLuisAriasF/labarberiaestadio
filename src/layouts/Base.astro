@@ -92,7 +92,7 @@ const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTI
   <body class="min-h-dvh flex flex-col" data-personal={personal ? '1' : '0'}>
     <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 btn z-50">Saltar al contenido</a>
     {!personal && <Header privado={privado} nombre={b.nombre} logo={b.logo_url || '/logo-barberia.jpg'} />}
-    <main id="contenido" class:list={[personal ? 'flex-1 w-full px-4 sm:px-6' : 'flex-1 w-full mx-auto px-4 sm:px-6 py-6', !personal && (anchoCompleto ? 'max-w-7xl' : 'max-w-6xl')]}>
+    <main id="contenido" class:list={[personal ? 'flex-1 w-full px-4 sm:px-6 pt-5 pb-6' : 'flex-1 w-full mx-auto px-4 sm:px-6 py-6', !personal && (anchoCompleto ? 'max-w-7xl' : 'max-w-6xl')]}>
       <slot />
     </main>
     {!privado && <Footer b={b} />}
