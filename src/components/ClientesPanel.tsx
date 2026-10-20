@@ -100,7 +100,20 @@ function DatosCliente({ clienteId, onCambio, onEliminado }: { clienteId: string;
       <div className="grid gap-3 rounded-2xl border border-red-500/40 p-4">
         <p className="text-sm font-semibold text-red-500">Zona de peligro</p>
         {c.usuario_id ? (
-          <p className="text-xs text-[var(--texto-suave)]">Este cliente tiene cuenta propia y no se puede eliminar desde el panel.</p>
+          <div className="grid gap-2">
+            <p className="text-xs text-[var(--texto-suave)]">Este cliente tiene cuenta propia y no se puede eliminar desde el panel.</p>
+            <button type="button" className="btn w-fit" onClick={async () => {
+              const nueva = prompt('Nueva clave para este cliente (mínimo 6 caracteres):');
+              if (!nueva || nueva.length < 6) return;
+              const { data: { session } } = await supabase.auth.getSession();
+              const r = await fetch('/api/admin-reset-clave-cliente', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+                body: JSON.stringify({ cliente_id: clienteId, clave: nueva }),
+              }).then((x) => x.json()).catch(() => ({ error: 'Sin conexión' }));
+              if (r.error) setError(r.error); else setOk('Clave reiniciada. Dásela al cliente.');
+            }}>🔑 Reiniciar clave…</button>
+          </div>
         ) : paso === 0 ? (
           <button type="button" className="btn w-fit text-red-500" onClick={() => setPaso(1)}>Eliminar cliente…</button>
         ) : paso === 1 ? (
