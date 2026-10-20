@@ -5,7 +5,7 @@ import type { Barberia, Producto, Servicio } from './tipos';
 
 const URL_SB = import.meta.env.PUBLIC_SUPABASE_URL;
 const KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-export const CODIGO = (import.meta.env.PUBLIC_BARBERIA || 'B1').toUpperCase();
+export const CODIGO = (import.meta.env.PUBLIC_BARBERIA || 'B4').toUpperCase();
 
 async function rest<T>(ruta: string): Promise<T[]> {
   if (!URL_SB || !KEY) return [];

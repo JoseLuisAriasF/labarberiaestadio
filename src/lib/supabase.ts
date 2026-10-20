@@ -11,7 +11,7 @@ export const supabase = createClient(URL || 'https://sin-configurar.supabase.co'
 /** Código de barbería que se está viendo: ?b=B2, o la de la portada. */
 export function codigoActual(): string {
   const q = new URLSearchParams(location.search).get('b');
-  return (q && /^B\d{1,6}$/i.test(q) ? q : (import.meta.env.PUBLIC_BARBERIA || 'B1')).toUpperCase();
+  return (q && /^B\d{1,6}$/i.test(q) ? q : (import.meta.env.PUBLIC_BARBERIA || 'B4')).toUpperCase();
 }
 
 /** Subdominio de la barbería (elestadiobarberia.pages.dev → elestadiobarberia); null en el sitio raíz. */
