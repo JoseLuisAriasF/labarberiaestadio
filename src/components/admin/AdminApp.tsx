@@ -338,7 +338,14 @@ function Licencia({ barberia }: { barberia: { plan: string; trial_ends_at: strin
           </>
         )}
         {enPrueba && dias <= 0 && <p className="text-sm text-red-500">Tu prueba terminó: las reservas online están pausadas.</p>}
-        <p className="text-xs text-[var(--texto-suave)]">Para activar tu plan o ampliar la prueba, escríbele al equipo de La Barbería Estadio.</p>
+        <div className="grid gap-2 border-t border-[var(--borde)] pt-3">
+          <p className="text-sm">Para activar tu plan o ampliar la prueba, contáctanos:</p>
+          <p className="text-base font-bold tabular-nums">+51 910 173 198</p>
+          <div className="flex flex-wrap gap-2">
+            <a href="https://wa.me/51910173198" target="_blank" rel="noopener" className="btn-whatsapp !min-h-10 !py-2 text-sm">WhatsApp</a>
+            <a href="tel:+51910173198" className="btn !min-h-10 !py-2 text-sm">Llamar</a>
+          </div>
+        </div>
       </section>
     </div>
   );
