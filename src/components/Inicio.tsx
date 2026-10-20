@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, Clock, Scissors, Sparkles, Star, Users } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { CalendarCheck, Clock, Scissors, Sparkles, Star, Users, X } from 'lucide-react';
 import { codigoActual, slugActual, supabase } from '@/lib/supabase';
 import { useBarberia } from '@/lib/useBarberia';
 import { abiertoAhora, hoyLima, isoDow, sumarDias } from '@/lib/agenda';
@@ -287,8 +288,29 @@ function Avatar({ b, grande }: { b: Barbero; grande?: boolean }) {
     : <span className={`${t} rounded-full grid place-items-center bg-acento-500 text-white font-bold shrink-0`} style={anillo}>{b.nombre.slice(0, 2).toUpperCase()}</span>;
 }
 
+/** Foto del barbero en grande. Se monta en <body> para no quedar atrapada por la animación de la hoja. */
+function VisorFoto({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    addEventListener('keydown', k);
+    return () => removeEventListener('keydown', k);
+  }, [onClose]);
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={`Foto de ${alt}`} onClick={onClose}
+      className="fixed inset-0 z-[70] grid place-items-center bg-black/85 p-4 backdrop-blur-sm">
+      <img src={src} alt={alt} onClick={(e) => e.stopPropagation()} className="max-h-[90dvh] max-w-full rounded-2xl object-contain shadow-2xl" />
+      <button type="button" onClick={onClose} aria-label="Cerrar foto"
+        className="absolute right-4 top-4 rounded-full bg-white/15 p-2 text-white hover:bg-white/25">
+        <X className="size-5" />
+      </button>
+    </div>,
+    document.body,
+  );
+}
+
 function Ficha({ b, datos, disp, onReservar }: { b: Barbero; datos: NonNullable<ReturnType<typeof useBarberia>['datos']>; disp?: Disp; onReservar: () => void }) {
   const e = ESTADOS[b.estado];
+  const [verFoto, setVerFoto] = useState(false);
   const best = datos.barberoServicios.filter((x) => x.barbero_id === b.id && x.es_bestseller)
     .map((x) => datos.servicios.find((s) => s.id === x.servicio_id)).filter(Boolean);
   const hoy = b.horario_atencion[String(isoDow(hoyLima()))];
@@ -312,7 +334,13 @@ function Ficha({ b, datos, disp, onReservar }: { b: Barbero; datos: NonNullable<
   return (
     <div className="grid gap-5">
       <div className="flex items-center gap-4">
-        <Avatar b={b} grande />
+        {b.avatar_url ? (
+          <button type="button" onClick={() => setVerFoto(true)} aria-label={`Ver foto de ${b.nombre} en grande`}
+            className="shrink-0 rounded-full transition hover:scale-105 focus-visible:outline-2 focus-visible:outline-acento-500">
+            <Avatar b={b} grande />
+          </button>
+        ) : <Avatar b={b} grande />}
+        {verFoto && b.avatar_url && <VisorFoto src={b.avatar_url} alt={b.nombre} onClose={() => setVerFoto(false)} />}
         <div className="min-w-0">
           <p className="titulo text-xl">{b.nombre}</p>
           <p className="text-sm font-medium" style={{ color: e.color }}>{e.emoji} {e.texto}</p>
