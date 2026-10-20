@@ -9,7 +9,7 @@ import Agenda from '../Agenda';
 import EditorHorario from '../Horario';
 import ClientesPanel from '../ClientesPanel';
 import { BotonAccion } from '../ui';
-import { iniciarGuia } from '@/lib/guia';
+import { iniciarAyudaVista } from '@/lib/guia';
 import { Aviso, Cargando } from '../ui';
 
 export default function BarberApp() {
@@ -39,7 +39,7 @@ export default function BarberApp() {
     location.replace('/login');
   }
   return (
-    <div className="grid gap-5 max-w-3xl mx-auto pb-28 sm:pb-0">
+    <div data-vista={tab} className="grid gap-5 max-w-3xl mx-auto pb-28 sm:pb-0">
       <header className="flex items-center gap-3">
         {/* Tocar la foto o las iniciales abre "Mi perfil" para cambiar foto y datos. */}
         <button type="button" onClick={() => setTab('perfil')} aria-label="Editar mi perfil" className="shrink-0 rounded-full ring-2 ring-transparent hover:ring-acento-500/60 transition">
@@ -53,7 +53,7 @@ export default function BarberApp() {
         <button type="button" onClick={cerrarSesion} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
       </header>
       <div className="flex justify-end -mb-2">
-        <button type="button" onClick={() => iniciarGuia('barbero')} className="btn !py-1.5 text-xs">¿Cómo uso la app?</button>
+        <button type="button" onClick={() => iniciarAyudaVista(tab)} className="btn !py-1.5 text-xs">❔ Ayuda de esta sección</button>
       </div>
       <nav aria-label="Secciones" className="neu-inset rounded-2xl p-1 grid grid-cols-4 gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
         {([['jornada', 'Jornada', Clock], ['agenda', 'Citas', CalendarDays], ['clientes', 'Clientes', Users], ['perfil', 'Mi perfil', User]] as const).map(([id, t, I]) => (
@@ -212,7 +212,7 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
 
   return (
     <div className="grid gap-5">
-      <section className="neu rounded-2xl p-4 grid gap-3">
+      <section data-ayuda="perfil-datos" className="neu rounded-2xl p-4 grid gap-3">
         <div className="flex items-center gap-3">
           {avatar ? <img src={avatar} alt="" className="size-16 rounded-full object-cover" /> : <span className="size-16 rounded-full neu-inset grid place-items-center">📷</span>}
           <label className="btn cursor-pointer text-xs">Cambiar foto<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => foto(e.target.files?.[0])} /></label>
@@ -231,7 +231,7 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
           </div>
         )}
       </section>
-      <section className="neu rounded-2xl p-4 grid gap-3">
+      <section data-ayuda="perfil-horario" className="neu rounded-2xl p-4 grid gap-3">
         <h3 className="titulo">🕘 Mi horario de atención</h3>
         <EditorHorario valor={horario} onChange={setHorario} />
       </section>
@@ -239,7 +239,7 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
       <button className="btn-acento" onClick={guardar}>Guardar perfil</button>
 
-      <section className="neu rounded-2xl p-4 grid gap-2">
+      <section data-ayuda="perfil-servicios" className="neu rounded-2xl p-4 grid gap-2">
         <h3 className="titulo">✂️ Mis servicios</h3>
         <p className="text-xs text-base-500">Importa los cortes del catálogo de la barbería y marca tus ⭐ best sellers (se destacan en tu ficha).</p>
         {datos.servicios.map((s) => {

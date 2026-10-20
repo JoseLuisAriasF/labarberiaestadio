@@ -37,7 +37,7 @@ export default function Festivos({ datos, recargar }: { datos: NonNullable<Retur
         </p>
       </section>
 
-      <section className="grid sm:grid-cols-2 gap-3">
+      <section data-ayuda="festivos-opciones" className="grid sm:grid-cols-2 gap-3">
         {OPCIONES.map((o) => (
           <button key={o.v} onClick={() => elegir(o.v)} aria-pressed={val === o.v}
             className="neu-sm neu-press rounded-xl p-3 text-left aria-pressed:neu-inset aria-pressed:ring-2 aria-pressed:ring-acento-500/60">
@@ -48,7 +48,7 @@ export default function Festivos({ datos, recargar }: { datos: NonNullable<Retur
       </section>
 
       {/* Vista previa de lo que verán los clientes ahora mismo */}
-      <section className="neu rounded-2xl p-4 grid gap-2">
+      <section data-ayuda="festivos-previa" className="neu rounded-2xl p-4 grid gap-2">
         <span className="etiqueta">Vista previa (lo que se muestra ahora)</span>
         {activo ? (
           <div className="flex items-center gap-3">

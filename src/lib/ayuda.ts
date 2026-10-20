@@ -239,11 +239,57 @@ export const AYUDA: Record<string, AyudaVista> = {
   },
   festivos: {
     titulo: 'Festivos',
-    resumen: 'Efectos especiales en la web para fechas festivas (por ejemplo fiestas patrias).',
+    resumen: 'Decoración de temporada para la web pública y el local 3D (Fiestas Patrias, Navidad, Halloween…).',
     secciones: [
       { titulo: 'Qué hacer', items: [
-        'Activa los efectos de las fechas que quieras. La "Vista previa" muestra cómo se verá ahora.',
-        'Si no hay ninguna fecha activa, verás "Sin decoración en este momento".',
+        'Elige cómo se decora la web y el local en 3D. Se guarda al instante, no hace falta "Guardar".',
+      ] },
+      { titulo: 'Opciones', items: [
+        '✨ Automático por fecha (recomendado): se decora solo en cada temporada.',
+        '⚪ Sin decoración: apaga todos los efectos festivos.',
+        'Cada tema (Navidad, Fiestas Patrias…): lo fuerza todo el año, útil para probarlo antes de la fecha.',
+      ] },
+      { titulo: 'Vista previa', items: [
+        'Muestra lo que ven los clientes ahora mismo. Si dice "Sin decoración en este momento", no hay temporada activa.',
+      ] },
+    ],
+  },
+  jornada: {
+    titulo: 'Mi jornada',
+    resumen: 'Tu día en el local: llegada, cola y estado. Lo que cambias aquí lo ven los clientes en vivo.',
+    secciones: [
+      { titulo: 'Llegada', items: [
+        '"Llegué al local": apareces en tu silla para los clientes. Al irte, pulsa "Me retiro".',
+        'Si no has llegado, tu silla aparece vacía.',
+      ] },
+      { titulo: 'Cola', items: [
+        'Muestra cuántas personas esperan y quién sigue (clientes sin cita).',
+        '"Empezar" atiende al primero: te marca ocupado y el tiempo estimado se ajusta solo.',
+      ] },
+      { titulo: 'Estado', items: [
+        'Libre, atendiendo cita, atendiendo sin cita o descanso: un toque para cambiar.',
+        'Tiempo estimado: minutos del corte actual. Los clientes ven cuándo quedas libre.',
+      ] },
+    ],
+  },
+  perfil: {
+    titulo: 'Mi perfil',
+    resumen: 'Tus datos, tu horario y tus cortes. Lo que pongas aquí se ve en tu ficha de la web.',
+    secciones: [
+      { titulo: 'Foto y datos', items: [
+        'Toca tu foto (o tus iniciales) para cambiarla.',
+        'Sobre mí (hasta 300 caracteres) y especialidades separadas por coma.',
+        'Email, teléfono y WhatsApp con 51 para avisos y para que te escriban los clientes.',
+        'Yape y Plin: solo si el cobro es individual.',
+        'Pulsa "Guardar perfil" para aplicar los cambios.',
+      ] },
+      { titulo: 'Horario', items: [
+        'Tus días y horas de atención. Los clientes solo pueden reservar dentro de este horario.',
+      ] },
+      { titulo: 'Servicios', items: [
+        '"Importar" trae un corte del catálogo de la barbería a tu lista.',
+        '"☆ Destacar" lo marca como ⭐ best seller: se resalta en tu ficha.',
+        '"Quitar" lo saca de tu lista (no borra el catálogo).',
       ] },
     ],
   },
@@ -287,5 +333,7 @@ export const EL_AYUDA: Record<string, Record<string, string>> = {
     'Horario y cobros': '[data-ayuda="local-horario"]',
     'QR para reservas': '[data-ayuda="local-qr"]',
   },
-  festivos: { 'Qué hacer': '[data-ayuda="festivos"]' },
+  festivos: { 'Qué hacer': '[data-ayuda="festivos"]', 'Opciones': '[data-ayuda="festivos-opciones"]', 'Vista previa': '[data-ayuda="festivos-previa"]' },
+  jornada: { 'Llegada': '[data-guia="llegada"]', 'Cola': '[data-guia="cola"]', 'Estado': '[data-guia="estado"]' },
+  perfil: { 'Foto y datos': '[data-ayuda="perfil-datos"]', 'Horario': '[data-ayuda="perfil-horario"]', 'Servicios': '[data-ayuda="perfil-servicios"]' },
 };
