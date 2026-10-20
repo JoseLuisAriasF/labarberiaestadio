@@ -115,10 +115,10 @@ export default function AdminApp() {
         <p className="text-xs text-gray-400 mt-0.5">Código <b className="text-acento-400">{barberia.codigo}</b></p>
         <a href={`/?b=${barberia.codigo}`} target="_blank" className="text-xs text-acento-400 hover:text-acento-300 mt-1 inline-block">Ver web pública ↗</a>
       </div>
-      <div className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
+      <div className="flex-1 py-2 px-3 space-y-0.5 overflow-y-auto scrollbar-none">
         {visibles.map(({ id, t, I }) => (
           <button key={id} onClick={() => ir(id)} data-guia={`tab-${id}`} aria-current={tab === id ? 'page' : undefined}
-            className="w-full rounded-lg px-3 py-2.5 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors aria-[current=page]:bg-acento-500/15 aria-[current=page]:text-acento-400 aria-[current=page]:font-semibold">
+            className="w-full rounded-lg px-3 py-2 text-sm flex items-center gap-3 text-gray-400 hover:text-white hover:bg-white/5 transition-colors aria-[current=page]:bg-acento-500/15 aria-[current=page]:text-acento-400 aria-[current=page]:font-semibold">
             <I className="size-4 shrink-0" /> {t}
           </button>
         ))}
@@ -139,7 +139,7 @@ export default function AdminApp() {
   );
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] -mx-4 sm:-mx-6">
+    <div className="flex min-h-[calc(100dvh-4rem)] w-full min-w-0">
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex lg:flex-col w-60 shrink-0 sticky top-0 h-dvh bg-gradient-to-b from-[#0a0a1a] to-[#12122a] border-r border-white/5">
         {sidebar}
