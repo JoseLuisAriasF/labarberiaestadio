@@ -344,7 +344,9 @@ function Licencia({ barberia }: { barberia: { plan: string; trial_ends_at: strin
           <div className="flex flex-wrap gap-2">
             <a href="https://wa.me/51910173198" target="_blank" rel="noopener" className="btn-whatsapp !min-h-10 !py-2 text-sm">WhatsApp</a>
             <a href="tel:+51910173198" className="btn !min-h-10 !py-2 text-sm">Llamar</a>
+            <a href="mailto:josariasf@gmail.com" className="btn !min-h-10 !py-2 text-sm">Correo</a>
           </div>
+          <p className="text-xs text-[var(--texto-suave)]">josariasf@gmail.com</p>
         </div>
       </section>
     </div>
