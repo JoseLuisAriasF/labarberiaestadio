@@ -17,7 +17,7 @@ export const GET: APIRoute = async ({ site }) => {
   const texto = [
     `# ${b.nombre}`,
     '',
-    `> Barbería en ${[b.distrito, b.ciudad || 'Lima'].filter(Boolean).join(', ')}, Perú. Reservas online en tiempo real: se ve en vivo qué barbero está libre y la cola de espera. Pagos con Yape, Plin, transferencia o efectivo.`,
+    `> Barbería en ${[b.distrito, b.ciudad || 'Tacna'].filter(Boolean).join(', ')}, Perú. También escrita o buscada como: El Estadio Barberia (sin tilde), Estadio Barbería / Estadio Barberia, El Estadio Barbería Tacna / El Estadio Barberia Tacna, elestadiobarberia, elestadiobarberiatacna, La Barbería Estadio. Reservas online en tiempo real: se ve en vivo qué barbero está libre y la cola de espera. Pagos con Yape, Plin, transferencia o efectivo.`,
     '', '## Ubicación', lista(ubicacion, ''),
     '', '## Horario', lista(horario, 'Consultar'),
     '', '## Servicios', lista(servicios.map((s) => `${s.nombre}: S/ ${s.precio_base} (${s.duracion_min} min)`), 'Cortes, degradados y barba'),

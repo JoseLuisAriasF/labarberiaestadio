@@ -15,10 +15,18 @@ async function rest<T>(ruta: string): Promise<T[]> {
   } catch { return []; }
 }
 
+// Fallback con los datos reales de B4 (El Estadio Barbería, Tacna): si el fetch a
+// Supabase falla en build, el HTML igual sale con la dirección, teléfono y horario correctos.
 const RESPALDO: Barberia = {
-  id: '', codigo: CODIGO, nombre: 'La Barbería Estadio', descripcion: 'Barbería en Lima con reservas en tiempo real.',
-  ciudad: 'Lima', horario: { '1': ['09:00', '21:00'], '2': ['09:00', '21:00'], '3': ['09:00', '21:00'], '4': ['09:00', '21:00'], '5': ['09:00', '21:00'], '6': ['09:00', '21:00'], '7': null },
-  fotos: [], modo_financiero: 'CENTRALIZADO', modo_gamificacion: 'GLOBAL', comision_pct: 50, alquiler_mensual: 0,
+  id: '', codigo: CODIGO, nombre: 'El Estadio Barbería',
+  descripcion: 'Barbería en Coronel Gregorio Albarracín, Tacna. Cortes clásicos, fades, degradados y barba con reservas en tiempo real. Pagos con Yape, Plin, transferencia o efectivo.',
+  whatsapp: '51922525513',
+  direccion: 'Asoc. San Francisco Mz.13 Lt 05',
+  referencia: 'Financiera "Confianza" y Veterinaria "Santa Rosa"',
+  distrito: 'Coronel Gregorio Albarracín', ciudad: 'Tacna',
+  lat: -18.047052, lng: -70.247161,
+  horario: { '1': ['09:00', '21:00'], '2': ['09:00', '21:00'], '3': ['09:00', '21:00'], '4': ['09:00', '21:00'], '5': ['09:00', '21:00'], '6': ['09:00', '21:00'], '7': ['09:00', '20:00'] },
+  fotos: [], modo_financiero: 'CENTRALIZADO', modo_gamificacion: 'POR_BARBERO', comision_pct: 50, alquiler_mensual: 0,
   plan: 'TRIAL', trial_ends_at: '',
 };
 
@@ -44,7 +52,32 @@ export function jsonLdBarberia(b: Barberia, site: URL, servicios: Servicio[] = [
     '@type': 'BarberShop',
     '@id': new URL('/#barberia', site).toString(),
     name: b.nombre,
+    // Variantes con/sin tilde, con/sin espacios, con/sin "el"/"la" y con "tacna":
+    // así una búsqueda literal "elestadiobarberia", "el estadio barberia tacna",
+    // "estadio barberia", etc. mapea a esta ficha.
+    alternateName: [
+      'El Estadio Barbería', 'El Estadio Barberia',
+      'El Estadio Barbería Tacna', 'El Estadio Barberia Tacna',
+      'Estadio Barbería', 'Estadio Barberia',
+      'Estadio Barbería Tacna', 'Estadio Barberia Tacna',
+      'La Barbería Estadio', 'La Barberia Estadio',
+      'La Barbería Estadio Tacna', 'La Barberia Estadio Tacna',
+      'elestadiobarberia', 'elestadiobarbería',
+      'elestadiobarberiatacna', 'elestadiobarberíatacna',
+      'estadiobarberia', 'estadiobarbería',
+      'estadiobarberiatacna', 'estadiobarberíatacna',
+      'el-estadio-barberia', 'el-estadio-barberia-tacna',
+      'labarberiaestadio', 'labarberíaestadio',
+    ],
     description: b.descripcion || undefined,
+    areaServed: [{ '@type': 'City', name: b.ciudad || 'Tacna' }, { '@type': 'AdministrativeArea', name: 'Tacna' }],
+    knowsAbout: [
+      'Barbería en Tacna', 'Barberia en Tacna',
+      'Mejor barbería Tacna', 'Mejor barberia Tacna',
+      'Barbería Tacna cerca de mí', 'Barberia Tacna cerca de mi',
+      'Corte de cabello Tacna', 'Fade Tacna', 'Degradado Tacna', 'Barba Tacna',
+      'Barbería Coronel Gregorio Albarracín', 'Barberia Cono Sur Tacna',
+    ],
     url: site.toString(),
     image: b.fotos?.[0] || new URL('/og.png', site).toString(),
     logo: new URL('/icono-512.png', site).toString(),
@@ -55,8 +88,8 @@ export function jsonLdBarberia(b: Barberia, site: URL, servicios: Servicio[] = [
     address: {
       '@type': 'PostalAddress',
       streetAddress: b.direccion || undefined,
-      addressLocality: b.distrito || b.ciudad || 'Lima',
-      addressRegion: 'Lima',
+      addressLocality: b.distrito || b.ciudad || 'Tacna',
+      addressRegion: b.ciudad || 'Tacna',
       addressCountry: 'PE',
     },
     geo: b.lat != null && b.lng != null ? { '@type': 'GeoCoordinates', latitude: b.lat, longitude: b.lng } : undefined,

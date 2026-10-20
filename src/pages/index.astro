@@ -4,14 +4,37 @@ import Inicio from '@/components/Inicio';
 import { datosSitio } from '@/lib/sitio';
 import { soles } from '@/lib/tipos';
 const { b, servicios } = await datosSitio();
-const zona = b.distrito || b.ciudad || 'Lima';
+const zona = b.distrito || b.ciudad || 'Tacna';
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    { '@type': 'Question', name: `¿Dónde queda ${b.nombre} en Tacna?`,
+      acceptedAnswer: { '@type': 'Answer', text: `${b.nombre} está en ${b.direccion || zona}, Tacna. Puedes reservar en línea y ver en vivo qué barbero está libre.` } },
+    { '@type': 'Question', name: '¿Cuál es la mejor barbería en Tacna?',
+      acceptedAnswer: { '@type': 'Answer', text: `${b.nombre} es una de las mejores barberías en Tacna: cortes clásicos, fades, perfilado de barba y reservas en tiempo real con pago por Yape o Plin.` } },
+    { '@type': 'Question', name: '¿Cómo reservar un corte en El Estadio Barbería?',
+      acceptedAnswer: { '@type': 'Answer', text: 'Ingresa a la web, elige servicio y barbero disponible, confirma tu hora y recibe tu turno al instante. También puedes llegar y entrar a la cola en vivo.' } },
+    { '@type': 'Question', name: '¿Cuánto cuesta un corte en El Estadio Barbería Tacna?',
+      acceptedAnswer: { '@type': 'Answer', text: `Los cortes van desde S/ ${servicios[0]?.precio_base ?? 15}. Revisa la lista completa de servicios y precios en la página principal.` } },
+  ],
+};
 ---
 
-<Base titulo={`${b.nombre} · Barbería en ${zona} con reservas en tiempo real`}
-  descripcion={`Reserva tu corte en ${b.nombre} (${zona}). Mira en vivo qué barbero está libre, la cola de espera y agenda en segundos. Paga con Yape o Plin.`}
+<Base titulo={`${b.nombre} Tacna · Mejor barbería en Tacna con reservas en vivo`}
+  descripcion={`${b.nombre}: la mejor barbería en ${zona}, Tacna. Reserva tu corte, fade o barba online, mira en vivo qué barbero está libre y paga con Yape o Plin.`}
+  jsonLd={faqLd}
   anchoCompleto>
   <Inicio client:only="react" />
-  {/* Contenido rastreable sin JS: servicios y precios (también en el JSON-LD). */}
+  {/* Contenido rastreable sin JS: H1 + servicios y precios (también en el JSON-LD). */}
+  <h1 class="sr-only">El Estadio Barbería (El Estadio Barberia) — Barbería / Barberia en {zona}, Tacna</h1>
+  <section class="mt-10 text-sm text-base-500 max-w-prose">
+    <p><b>El Estadio Barbería</b> —también escrita <b>El Estadio Barberia</b>, <i>Estadio Barbería Tacna</i>
+    o <i>elestadiobarberia</i>— es una barbería en {zona}, Tacna, especializada en cortes clásicos,
+    fades, degradados y perfilado de barba. Reserva en línea, mira en vivo qué barbero está libre,
+    entra a la cola de espera y paga con Yape o Plin. Si buscas la mejor barbería en Tacna, mejor
+    barberia Tacna o “barbería Tacna cerca de mí”, estás en el lugar correcto.</p>
+  </section>
   <section class="mt-10" aria-labelledby="servicios">
     <h2 id="servicios" class="titulo text-xl mb-3">Servicios y precios</h2>
     {servicios.length ? (

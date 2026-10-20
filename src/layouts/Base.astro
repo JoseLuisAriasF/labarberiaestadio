@@ -20,7 +20,7 @@ const { b, servicios } = await datosSitio();
 const site = Astro.site!;
 const canonical = new URL(Astro.url.pathname, site).toString();
 const imagenAbs = new URL(imagen, site).toString();
-const lugar = [b.distrito, b.ciudad || 'Lima'].filter(Boolean).join(', ');
+const lugar = [b.distrito, b.ciudad || 'Tacna'].filter(Boolean).join(', ');
 const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN : '';
 ---
 
@@ -29,6 +29,7 @@ const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTI
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="google-site-verification" content="_dtdmslFfBjG_RgobP4Clg9YJ1gqjgHXUgW62Jr6U2w" />
     <title>{titulo}</title>
     <meta name="description" content={descripcion} />
     {privado ? <meta name="robots" content="noindex, nofollow" /> : <meta name="robots" content="index, follow, max-image-preview:large" />}
@@ -45,7 +46,7 @@ const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTI
     <meta name="apple-mobile-web-app-capable" content="yes" />
 
     {/* GEO local: región, ciudad y coordenadas del local (Bing y buscadores locales los leen). */}
-    <meta name="geo.region" content="PE-LIM" />
+    <meta name="geo.region" content="PE-TAC" />
     <meta name="geo.placename" content={lugar} />
     {b.lat != null && b.lng != null && (
       <>
@@ -66,7 +67,8 @@ const TOKEN_ANALYTICS = import.meta.env.PROD ? import.meta.env.PUBLIC_CF_ANALYTI
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="es_PE" />
     {b.direccion && <meta property="business:contact_data:street_address" content={b.direccion} />}
-    <meta property="business:contact_data:locality" content={b.ciudad || 'Lima'} />
+    <meta property="business:contact_data:locality" content={b.ciudad || 'Tacna'} />
+    <meta property="business:contact_data:region" content={b.ciudad || 'Tacna'} />
     <meta property="business:contact_data:country_name" content="Perú" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={titulo} />
