@@ -181,7 +181,8 @@ function CambiarClave({ onListo }: { onListo: () => void }) {
     if (a !== b) return setError('Las claves no coinciden');
     if (a.length < 6) return setError('Usa al menos 6 caracteres');
     const { error } = await supabase.auth.updateUser({ password: a });
-    if (error) return setError(msg(error));
+    // Si el barbero decide dejar la misma clave, el servidor la rechaza: la decisión es suya, así que se acepta.
+    if (error && !/different from the old password|debe ser diferente|diferente de la anterior/i.test(error.message)) return setError(msg(error));
     await supabase.rpc('clave_cambiada');
     onListo();
   }
