@@ -88,11 +88,15 @@ function Estado({ yo }: { yo: Barbero }) {
     const { error } = await supabase.rpc('marcar_presencia', { p_barbero: yo.id, p_presente: presente });
     if (error) setError(msg(error));
   }
+  // Respuesta inmediata: el botón cambia al tocarlo y el realtime solo confirma (o deshace si falla).
+  const [pedido, setPedido] = useState<EstadoBarbero | null>(null);
+  useEffect(() => setPedido(null), [yo.estado]);
   async function cambiar(e: EstadoBarbero) {
     setError('');
     if ('vibrate' in navigator) navigator.vibrate(30);
+    setPedido(e);
     const { error } = await supabase.rpc('barbero_set_estado', { p_estado: e, p_minutos: minutos });
-    if (error) setError(msg(error));
+    if (error) { setError(msg(error)); setPedido(null); }
   }
   return (
     <section className="grid gap-4">
@@ -118,7 +122,7 @@ function Estado({ yo }: { yo: Barbero }) {
       )}
       <div data-guia="estado" className="grid grid-cols-2 gap-3">
         {(Object.keys(ESTADOS) as EstadoBarbero[]).map((e) => {
-          const s = ESTADOS[e], activo = yo.estado === e;
+          const s = ESTADOS[e], activo = (pedido ?? yo.estado) === e;
           return (
             <motion.button key={e} whileTap={{ scale: 0.94 }} onClick={() => cambiar(e)} aria-pressed={activo}
               className={`rounded-3xl p-5 min-h-32 grid place-items-center text-center gap-1 ${activo ? 'neu-inset ring-4' : 'neu'}`}

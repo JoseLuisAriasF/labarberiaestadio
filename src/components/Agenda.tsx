@@ -90,13 +90,16 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
 
   const Fila = ({ c, conFecha }: { c: Cita; conFecha?: boolean }) => {
     const e = ESTADOS_CITA[c.estado];
+    // La barra de color lee el estado de un vistazo, sin leer el texto.
+    const barra = { PENDIENTE_PAGO: 'border-amber-500', CONFIRMADA: 'border-acento-500', EN_COLA: 'border-sky-500', EN_CURSO: 'border-emerald-500' }[c.estado as string] ?? 'border-base-700';
     return (
-      <li className="neu-sm rounded-xl px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="w-16 tabular-nums text-sm font-semibold">{conFecha && <span className="block text-[10px] font-normal text-base-500">{dia(c.fecha_hora)}</span>}{hora(c.fecha_hora)}</span>
+      <li className={`neu-sm rounded-xl border-l-4 ${barra} px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2`}>
+        <span className="w-16 tabular-nums text-base font-bold">{conFecha && <span className="block text-[10px] font-normal text-base-500">{dia(c.fecha_hora)}</span>}{hora(c.fecha_hora)}</span>
         <span className="flex-1 min-w-44">
           <span className="block text-sm font-medium">
-            {c.tipo === 'WALKIN' ? `🚶 ${c.nombre_walkin || 'Sin cita'}` : c.clientes?.nombre || 'Cliente'}
+            {c.tipo === 'WALKIN' ? `🚶 ${c.nombre_walkin || 'Sin cita'}` : c.clientes?.nombre || (c.nombre_walkin ? `👤 ${c.nombre_walkin}` : 'Cliente')}
             {c.clientes && <span className="ml-2 align-middle"><Insignia verificado={c.clientes.estado_verificacion === 'VERIFIED_100'} /></span>}
+            {!c.clientes && c.tipo === 'ONLINE' && <span className="ml-2 align-middle chip !py-0 !px-2 text-[10px]">Anónimo · sin DNI</span>}
           </span>
           <span className="block text-xs text-base-500">
             {c.servicios_cortes?.nombre ?? 'Servicio'} · {!soloBarbero && `${c.barberos?.nombre} · `}{soles(c.precio)}
@@ -104,17 +107,17 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
           </span>
         </span>
         <span className={`text-xs font-medium ${e.clase}`}>{c.estado === 'PENDIENTE_PAGO' && !c.comprobante_pago_url ? 'Sin adelanto · pide confirmación' : e.texto}</span>
-        <span className="flex gap-1.5 flex-wrap">
+        <span className="flex w-full gap-2 flex-wrap sm:w-auto">
           {c.estado === 'PENDIENTE_PAGO' && mia(c) && (c.comprobante_pago_url
-            ? <button className="btn !py-1 text-xs" onClick={() => verComprobante(c)}>🧾 Revisar pago</button>
-            : <button className="btn-acento !py-1 text-xs" onClick={() => rpc('confirmar_cita_conocido', { p_cita: c.id })}><Check className="size-3" /> Lo conozco · confirmar</button>)}
+            ? <button className="btn !py-2 text-xs" onClick={() => verComprobante(c)}>🧾 Revisar pago</button>
+            : <BotonAccion className="btn-acento !py-2 text-xs" onClick={() => rpc('confirmar_cita_conocido', { p_cita: c.id })}><Check className="size-3" /> Lo conozco · confirmar</BotonAccion>)}
           {(c.estado === 'CONFIRMADA' || c.estado === 'EN_COLA') && <>
-            <BotonAccion className="btn !py-1 text-xs" onClick={() => rpc('iniciar_cita', { p_cita: c.id })}><Play className="size-3" /> Iniciar</BotonAccion>
-            <BotonAccion className="btn !py-1 text-xs" onClick={() => rpc('marcar_no_asistio', { p_cita: c.id })}>No vino</BotonAccion>
+            <BotonAccion className="btn !py-2 text-xs" onClick={() => rpc('iniciar_cita', { p_cita: c.id })}><Play className="size-3" /> Iniciar</BotonAccion>
+            <BotonAccion className="btn !py-2 text-xs" onClick={() => rpc('marcar_no_asistio', { p_cita: c.id })}>No vino</BotonAccion>
           </>}
-          {c.estado === 'EN_CURSO' && <button className="btn-acento !py-1 text-xs" onClick={() => setCompletando(c)}><Check className="size-3" /> Completar</button>}
+          {c.estado === 'EN_CURSO' && <button className="btn-acento !py-2 text-xs" onClick={() => setCompletando(c)}><Check className="size-3" /> Completar</button>}
           {['PENDIENTE_PAGO', 'CONFIRMADA', 'EN_COLA'].includes(c.estado) &&
-            <button className="btn !py-1 !px-2 text-xs text-red-500" aria-label="Cancelar cita" onClick={() => confirm('¿Cancelar la cita?') && rpc('cancelar_cita', { p_cita: c.id })}><X className="size-3" /></button>}
+            <button className="btn !py-2 !px-2 text-xs text-red-500" aria-label="Cancelar cita" onClick={() => confirm('¿Cancelar la cita?') && rpc('cancelar_cita', { p_cita: c.id })}><X className="size-3" /></button>}
         </span>
       </li>
     );

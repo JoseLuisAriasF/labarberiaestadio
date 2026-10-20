@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCheck, CheckCircle2, Clock, MessageCircle, Upload } from 'lucide-react';
 import { msg, notificar, subirImagen, supabase } from '@/lib/supabase';
 import { bloquesDelDia, hoyLima, isoDow, sumarDias, type Bloque } from '@/lib/agenda';
 import { entrarConGoogle, useSesion } from '@/lib/useSesion';
-import type { Barbero, Cliente } from '@/lib/tipos';
+import type { Barbero } from '@/lib/tipos';
 import { DIAS, soles } from '@/lib/tipos';
 import type { DatosBarberia } from '@/lib/useBarberia';
-import { Aviso, BotonGoogle, Cargando, Esqueleto, Insignia, RegistroDni } from './ui';
+import { Aviso, BotonGoogle, Cargando, Esqueleto, Girando, Insignia, RegistroDni } from './ui';
 
 const BORRADOR = 'be:reserva';
 interface Voucher { id: string; codigo: string; tipo_premio: string; valor_descuento: number; barbero_id: string | null }
@@ -20,12 +20,13 @@ export function leerBorrador(): { barberoId: string; servicioId?: string; fecha?
   try { return JSON.parse(sessionStorage.getItem(BORRADOR) || 'null'); } catch { return null; }
 }
 
-function mensajeWhatsApp(p: { barbero: Barbero; cliente: Cliente; servicio: string; precio: number; fecha: string; hora: string; resultado: Resultado }) {
+function mensajeWhatsApp(p: { barbero: Barbero; nombre: string; dni?: string; servicio: string; precio: number; fecha: string; hora: string; resultado: Resultado }) {
   const cuando = `el ${DIAS[isoDow(p.fecha)]} ${p.fecha.slice(8)} a las ${p.hora}`;
   const cierre = p.resultado === 'CONFIRMADA' ? '¡Nos vemos!'
     : p.resultado === 'CON_COMPROBANTE' ? 'Te envío mi comprobante de Yape/Plin para confirmar. ¡Gracias!'
     : '¿Me confirmas la cita, por favor? Soy cliente de la barbería. ¡Gracias!';
-  return `Hola ${p.barbero.nombre}, soy ${p.cliente.nombre} (DNI ${p.cliente.dni}). Reservé *${p.servicio}* (${soles(p.precio)}) ${cuando}. ${cierre}`;
+  const quien = p.dni ? `${p.nombre} (DNI ${p.dni})` : p.nombre;
+  return `Hola ${p.barbero.nombre}, soy ${quien}. Reservé *${p.servicio}* (${soles(p.precio)}) ${cuando}. ${cierre}`;
 }
 
 export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarberia; barbero: Barbero; onListo: () => void }) {
@@ -44,6 +45,9 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   const [hora, setHora] = useState<string | undefined>(borrador?.hora);
 
   const [modo, setModo] = useState<Modo>('ADELANTO');
+  // Reserva anónima: sin DNI. Solo con adelanto, porque el barbero no conoce a esa persona.
+  const [anonimo, setAnonimo] = useState(false);
+  const [nombreAnon, setNombreAnon] = useState('');
   const [metodo, setMetodo] = useState<'YAPE' | 'PLIN'>('YAPE');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -62,6 +66,12 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
     });
   }, [fecha, servicio?.id, barbero.id]);
 
+  // Al elegir hora, el paso 3 sube solo: no hay que buscar el botón de confirmar.
+  const paso3 = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (hora) requestAnimationFrame(() => paso3.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+  }, [hora]);
+
   useEffect(() => {
     if (!cliente) return;
     supabase.from('gamificacion_vouchers').select('id, codigo, tipo_premio, valor_descuento, barbero_id')
@@ -71,7 +81,7 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
 
   if (servicios.length === 0) return <Aviso tipo="info">Este barbero aún no tiene servicios publicados.</Aviso>;
   if (hecho) return (
-    <Listo barbero={barbero} cliente={cliente} servicio={servicio!.nombre} precio={hecho.precio} fecha={fecha} hora={hora!}
+    <Listo barbero={barbero} nombre={cliente?.nombre ?? nombreAnon.trim()} dni={cliente?.dni} servicio={servicio!.nombre} precio={hecho.precio} fecha={fecha} hora={hora!}
       duracion={servicio!.duracion_min} resultado={hecho.resultado} onListo={onListo} />
   );
 
@@ -82,16 +92,27 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
     ? { a: barberia.titular_pago || barberia.nombre, yape: barberia.yape_numero, plin: barberia.plin_numero, qr: barberia.qr_pago_url }
     : { a: barbero.nombre, yape: barbero.yape_numero, plin: barbero.plin_numero, qr: null };
   const cerradoHoy = !barbero.horario_atencion[String(isoDow(fecha))];
-  const sinAdelanto = !verificado && modo === 'CONOCIDO';
+  const sinAdelanto = !verificado && !anonimo && modo === 'CONOCIDO';
+  const pideAdelanto = anonimo || (!verificado && modo === 'ADELANTO');
 
   async function confirmar() {
-    if (!servicio || !hora || !user || !cliente) return;
+    if (!servicio || !hora || !user || (!cliente && !anonimo)) return;
     setEnviando(true); setError('');
     try {
       let ruta: string | null = null;
       if (archivo && !sinAdelanto) ruta = (await subirImagen('comprobantes', `${barberia.id}/${user.id}`, archivo)).ruta;
-      if (!verificado && !sinAdelanto && !ruta) throw new Error('Adjunta la captura de tu Yape/Plin o elige “Ya me conoce el barbero”');
       const inicio = new Date(`${fecha}T${hora}:00-05:00`).toISOString();
+      if (anonimo) {
+        if (!ruta) throw new Error('Adjunta la captura de tu Yape/Plin para reservar sin DNI');
+        const { error } = await supabase.rpc('reservar_cita_anonima', {
+          p_barbero: barbero.id, p_servicio: servicio.id, p_inicio: inicio,
+          p_nombre: nombreAnon.trim(), p_comprobante: ruta, p_metodo: metodo,
+        });
+        if (error) throw error;
+        sessionStorage.removeItem(BORRADOR);
+        return setHecho({ resultado: 'CON_COMPROBANTE', precio });
+      }
+      if (!verificado && !sinAdelanto && !ruta) throw new Error('Adjunta la captura de tu Yape/Plin o elige “Ya me conoce el barbero”');
       const { data: citaId, error } = await supabase.rpc('reservar_cita', {
         p_barbero: barbero.id, p_servicio: servicio.id, p_inicio: inicio,
         p_comprobante: ruta, p_metodo: ruta ? metodo : null, p_voucher: voucherId || null,
@@ -158,23 +179,36 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
       </section>
 
       {hora && servicio && (
-        <section className="grid gap-3">
+        <section ref={paso3} className="grid gap-3 scroll-mt-4">
           <h3 className="paso"><span>3</span> Confirma tus datos</h3>
           {cargando ? <Cargando /> : !user ? (
             <>
               <p className="text-sm text-base-400">Inicia sesión para guardar tu cita y sumar cortes a tu tarjeta de lealtad.</p>
               <BotonGoogle onClick={() => { guardarBorrador({ barberoId: barbero.id, servicioId, fecha, hora }); entrarConGoogle(); }} />
             </>
-          ) : !cliente ? (
-            <RegistroDni email={user.email} onListo={setCliente} />
+          ) : !cliente && !anonimo ? (
+            <>
+              <RegistroDni email={user.email} onListo={setCliente} />
+              <button type="button" onClick={() => setAnonimo(true)} className="text-sm text-base-400 underline underline-offset-4 py-1">
+                Prefiero no registrar mi DNI: reservar de forma anónima
+              </button>
+            </>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <span>{cliente.nombre} · DNI ••••{cliente.dni.slice(-3)}</span>
-                <Insignia verificado={verificado} />
-              </div>
+              {anonimo ? (
+                <label>
+                  <span className="etiqueta">Tu nombre (para que el barbero te reconozca)</span>
+                  <input value={nombreAnon} onChange={(e) => setNombreAnon(e.target.value)} maxLength={60} autoComplete="name" className="campo" placeholder="Ej. Carlos" />
+                  <span className="block text-xs text-base-500 mt-1.5">Reserva anónima: no guardamos tu DNI ni sumas cortes a tu tarjeta de lealtad.</span>
+                </label>
+              ) : (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span>{cliente!.nombre} · DNI ••••{cliente!.dni.slice(-3)}</span>
+                  <Insignia verificado={verificado} />
+                </div>
+              )}
 
-              {vouchers.length > 0 && (
+              {vouchers.length > 0 && !anonimo && (
                 <label><span className="etiqueta">🎁 Usar voucher</span>
                   <select className="campo" value={voucherId} onChange={(e) => setVoucherId(e.target.value)}>
                     <option value="">No usar</option>
@@ -183,7 +217,7 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 </label>
               )}
 
-              {!verificado && (
+              {!verificado && !anonimo && (
                 <div role="radiogroup" aria-label="Cómo reservar" className="grid gap-2">
                   {([
                     { v: 'ADELANTO', t: 'Pago adelantado', d: `Confirmación inmediata al validar tu Yape o Plin (${soles(precio)}).` },
@@ -199,7 +233,7 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 </div>
               )}
 
-              {!verificado && modo === 'ADELANTO' && (
+              {pideAdelanto && (
                 <div className="panel grid gap-3">
                   <p className="text-sm">
                     Envía <b className="tabular-nums">{soles(precio)}</b> a <b>{pago.a}</b>
@@ -231,10 +265,20 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 <b className="text-lg tabular-nums">{soles(precio)}</b>
               </div>
               {error && <Aviso>{error}</Aviso>}
-              <button onClick={confirmar} disabled={enviando || (!verificado && modo === 'ADELANTO' && !archivo)} className="btn-primario w-full py-3.5">
-                <CalendarCheck className="size-5" />
-                {enviando ? 'Reservando…' : verificado || sinAdelanto ? 'Confirmar cita' : 'Enviar comprobante y reservar'}
-              </button>
+              {(() => {
+                // Muestra qué falta en vez de un botón gris sin explicación.
+                const falta = anonimo && nombreAnon.trim().length < 2 ? 'escribe tu nombre'
+                  : pideAdelanto && !archivo ? 'sube la captura de tu pago' : '';
+                return (
+                  <>
+                    <button onClick={confirmar} disabled={enviando || !!falta} aria-busy={enviando} className="btn-primario w-full py-3.5">
+                      {enviando ? <Girando className="size-5" /> : <CalendarCheck className="size-5" />}
+                      {enviando ? 'Reservando…' : verificado || sinAdelanto ? 'Confirmar cita' : 'Enviar comprobante y reservar'}
+                    </button>
+                    {falta && !enviando && <p className="text-center text-xs text-[var(--texto-suave)]">Falta: {falta}</p>}
+                  </>
+                );
+              })()}
             </>
           )}
         </section>
@@ -243,15 +287,15 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   );
 }
 
-function Listo({ barbero, cliente, servicio, precio, fecha, hora, duracion, resultado, onListo }: {
-  barbero: Barbero; cliente: Cliente | null; servicio: string; precio: number; fecha: string; hora: string; duracion: number;
+function Listo({ barbero, nombre, dni, servicio, precio, fecha, hora, duracion, resultado, onListo }: {
+  barbero: Barbero; nombre: string; dni?: string; servicio: string; precio: number; fecha: string; hora: string; duracion: number;
   resultado: Resultado; onListo: () => void;
 }) {
   const ini = new Date(`${fecha}T${hora}:00-05:00`);
   const fin = new Date(ini.getTime() + duracion * 60e3);
   const f = (d: Date) => d.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
   const cal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${servicio} con ${barbero.nombre}`)}&dates=${f(ini)}/${f(fin)}&location=${encodeURIComponent(location.origin + '/como-llegar')}`;
-  const texto = cliente && mensajeWhatsApp({ barbero, cliente, servicio, precio, fecha, hora, resultado });
+  const texto = nombre && mensajeWhatsApp({ barbero, nombre, dni, servicio, precio, fecha, hora, resultado });
   const wa = barbero.whatsapp && texto ? `https://wa.me/${barbero.whatsapp}?text=${encodeURIComponent(texto)}` : null;
   const explica = resultado === 'CONFIRMADA'
     ? 'Tu cita está confirmada. Te esperamos.'
