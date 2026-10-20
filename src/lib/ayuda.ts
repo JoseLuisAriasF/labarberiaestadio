@@ -301,6 +301,21 @@ export const AYUDA: Record<string, AyudaVista> = {
       ] },
     ],
   },
+  licencia: {
+    titulo: 'Licencia',
+    resumen: 'Tu plan y cuánto tiempo de prueba te queda.',
+    secciones: [
+      { titulo: 'Qué ves', items: [
+        'Plan actual: prueba gratuita o plan activo.',
+        'Días restantes y la fecha en que termina la prueba. La barra se vacía con el tiempo.',
+        'Si la prueba termina, las reservas online se pausan hasta que actives tu plan.',
+      ] },
+      { titulo: 'Aviso de prueba', items: [
+        'El aviso de arriba se puede ocultar con "Ocultar". Queda una línea con los días que faltan.',
+        'Para volver a ver el aviso completo, pulsa esa línea.',
+      ] },
+    ],
+  },
 };
 
 // Qué elemento de la vista resalta cada sección de la ayuda (sección sin ancla = se junta con la siguiente).

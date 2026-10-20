@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, CircleHelp, Gift, LayoutGrid, LogOut, MapPin, Menu, Moon, Package, PartyPopper, Scissors, ShieldCheck, Sun, UserCheck, Users, Wallet, X } from 'lucide-react';
+import { BarChart3, CalendarDays, CircleHelp, Clock, Gift, LayoutGrid, LogOut, MapPin, Menu, Moon, Package, PartyPopper, Scissors, ShieldCheck, Sun, UserCheck, Users, Wallet, X } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
 import BarberApp from '../barber/BarberApp';
 import { iniciarAyudaVista, iniciarGuia } from '@/lib/guia';
@@ -32,6 +32,7 @@ const TABS = [
   { id: 'mijornada', t: 'Mi jornada', I: UserCheck },
   { id: 'local', t: 'Local', I: MapPin },
   { id: 'festivos', t: 'Festivos', I: PartyPopper },
+  { id: 'licencia', t: 'Licencia', I: Clock },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 
@@ -99,7 +100,10 @@ export default function AdminApp() {
       if (primera) setTab(primera.id);
     }
   }, [permitidos]);
-  const visibles = TABS.filter((t) => accesoA(t.id, permitidos));
+  const visibles = TABS.filter((t) => accesoA(t.id, permitidos) && (t.id !== 'licencia' || esDueno));
+  // El aviso de prueba se puede ocultar; queda una línea con los días que faltan.
+  const [pruebaOculta, setPruebaOculta] = useState(() => { try { return localStorage.getItem('be:prueba-oculta') === '1'; } catch { return false; } });
+  function ocultarPrueba(v: boolean) { setPruebaOculta(v); try { localStorage.setItem('be:prueba-oculta', v ? '1' : '0'); } catch { /* sin almacenamiento */ } }
 
   const { datos, recargar } = useBarberia({ id: barberiaId ?? undefined });
   if (!barberiaId || !datos) return <Cargando texto="Abriendo tu panel…" />;
@@ -184,12 +188,21 @@ export default function AdminApp() {
       {/* Content */}
       <div className="flex-1 min-w-0 lg:px-6 px-4 py-4 pb-24 lg:py-6 lg:pb-6 lg:mt-0 mt-14">
         <div data-vista={tab} className="w-full grid gap-4">
-          {barberia.plan === 'TRIAL' && (
-            <Aviso tipo={dias > 7 ? 'info' : 'error'}>
-              {dias > 0 ? `🎁 Periodo de prueba: te quedan ${dias} días gratis (hasta el ${new Date(barberia.trial_ends_at).toLocaleDateString('es-PE')}).`
-                : '⛔ Tu prueba terminó: las reservas online están pausadas. Escríbenos para activar tu plan.'}
-            </Aviso>
-          )}
+          {barberia.plan === 'TRIAL' && (pruebaOculta ? (
+            <button type="button" onClick={() => setTab('licencia')} className="w-fit rounded-full border border-[var(--borde)] px-3 py-1 text-xs font-semibold text-[var(--texto-suave)] hover:text-[var(--texto)]">
+              🎁 Prueba: {dias > 0 ? `${dias} días` : 'terminó'} · ver licencia
+            </button>
+          ) : (
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <Aviso tipo={dias > 7 ? 'info' : 'error'}>
+                  {dias > 0 ? `🎁 Periodo de prueba: te quedan ${dias} días gratis (hasta el ${new Date(barberia.trial_ends_at).toLocaleDateString('es-PE')}).`
+                    : '⛔ Tu prueba terminó: las reservas online están pausadas. Escríbenos para activar tu plan.'}
+                </Aviso>
+              </div>
+              <button type="button" onClick={() => ocultarPrueba(true)} className="btn shrink-0 !py-1.5 text-xs">Ocultar</button>
+            </div>
+          ))}
 
           {tab === 'agenda' && (
             <Agenda barberia={barberia} barberos={datos.barberos} servicios={datos.servicios}
@@ -237,6 +250,7 @@ export default function AdminApp() {
             : <ActivarPerfil onListo={recargar} />)}
           {tab === 'local' && <Local barberia={barberia} recargar={recargar} />}
           {tab === 'festivos' && <Festivos datos={datos} recargar={recargar} />}
+          {tab === 'licencia' && <Licencia barberia={barberia} />}
         </div>
       </div>
     </div>
@@ -300,6 +314,32 @@ function Lealtad({ datos, recargar }: { datos: NonNullable<ReturnType<typeof use
             <span className="text-xs text-base-500"> · {p.barbero_id ? barberos.find((b) => b.id === p.barbero_id)?.nombre : 'toda la barbería'}{!p.activo && ' · inactivo'}</span>
           </span>
         )} />
+    </div>
+  );
+}
+
+/** Licencia: plan actual y cuánto tiempo de prueba queda. */
+function Licencia({ barberia }: { barberia: { plan: string; trial_ends_at: string; nombre: string } }) {
+  const fin = new Date(barberia.trial_ends_at);
+  const dias = Math.ceil((fin.getTime() - Date.now()) / 864e5);
+  const enPrueba = barberia.plan === 'TRIAL';
+  return (
+    <div className="grid max-w-xl gap-4">
+      <section className="panel grid gap-3">
+        <h3 className="titulo">Tu licencia</h3>
+        <p className="text-sm">Plan: <b>{enPrueba ? 'Prueba gratuita' : barberia.plan === 'ACTIVO' ? 'Plan activo' : barberia.plan}</b></p>
+        {enPrueba && (
+          <>
+            <p className="text-sm">Días restantes: <b className="text-lg">{dias > 0 ? dias : 0}</b></p>
+            <p className="text-sm text-[var(--texto-suave)]">La prueba termina el {fin.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })}.</p>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--superficie)]">
+              <div className="h-full bg-acento-500" style={{ width: `${Math.max(0, Math.min(100, (dias / 90) * 100))}%` }} />
+            </div>
+          </>
+        )}
+        {enPrueba && dias <= 0 && <p className="text-sm text-red-500">Tu prueba terminó: las reservas online están pausadas.</p>}
+        <p className="text-xs text-[var(--texto-suave)]">Para activar tu plan o ampliar la prueba, escríbele al equipo de La Barbería Estadio.</p>
+      </section>
     </div>
   );
 }
