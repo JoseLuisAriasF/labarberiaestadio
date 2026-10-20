@@ -108,6 +108,9 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
         </span>
         <span className={`text-xs font-medium ${e.clase}`}>{c.estado === 'PENDIENTE_PAGO' && !c.comprobante_pago_url ? 'Sin adelanto · pide confirmación' : e.texto}</span>
         <span className="flex w-full gap-2 flex-wrap sm:w-auto">
+          {!c.cliente_id && c.estado !== 'COMPLETADA' && c.estado !== 'CANCELADA' && c.estado !== 'RECHAZADA' && c.estado !== 'NO_ASISTIO' && (
+            <RenombrarSinCuenta cita={c} onListo={cargar} />
+          )}
           {c.estado === 'PENDIENTE_PAGO' && mia(c) && (c.comprobante_pago_url
             ? <button className="btn !py-2 text-xs" onClick={() => verComprobante(c)}>🧾 Revisar pago</button>
             : <BotonAccion className="btn-acento !py-2 text-xs" onClick={() => rpc('confirmar_cita_conocido', { p_cita: c.id })}><Check className="size-3" /> Lo conozco · confirmar</BotonAccion>)}
@@ -187,6 +190,33 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
           onListo={() => { setWalkin(false); cargar(); }} />
       </Hoja>
     </div>
+  );
+}
+
+/** Corrige el nombre de un cliente sin cuenta (walk-in o anónimo). Con cuenta, el cliente lo cambia desde su perfil. */
+function RenombrarSinCuenta({ cita, onListo }: { cita: Cita; onListo: () => void }) {
+  const [editando, setEditando] = useState(false);
+  const [nombre, setNombre] = useState(cita.nombre_walkin ?? '');
+  const [error, setError] = useState('');
+  async function guardar() {
+    setError('');
+    const { error } = await supabase.rpc('barbero_renombrar_cita', { p_cita: cita.id, p_nombre: nombre.trim() });
+    if (error) return setError(msg(error));
+    setEditando(false);
+    onListo();
+  }
+  if (!editando) return (
+    <button type="button" className="btn !py-2 text-xs" onClick={() => { setNombre(cita.nombre_walkin ?? ''); setEditando(true); }}>✏️ Nombre</button>
+  );
+  return (
+    <span className="flex w-full flex-wrap items-center gap-2">
+      <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={60} aria-label="Nombre del cliente" autoFocus
+        onKeyDown={(e) => { if (e.key === 'Enter' && nombre.trim().length >= 2) guardar(); if (e.key === 'Escape') setEditando(false); }}
+        className="campo !w-48 !py-2 !min-h-10 text-sm" />
+      <BotonAccion className="btn-acento !py-2 text-xs" disabled={nombre.trim().length < 2} onClick={guardar}>Guardar</BotonAccion>
+      <button type="button" className="btn !py-2 text-xs" onClick={() => setEditando(false)}>Cancelar</button>
+      {error && <span role="alert" className="w-full text-xs text-red-500">{error}</span>}
+    </span>
   );
 }
 
