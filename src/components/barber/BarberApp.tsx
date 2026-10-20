@@ -75,7 +75,7 @@ function Estado({ yo }: { yo: Barbero }) {
   async function cargarCola() {
     const { data } = await supabase.from('citas').select('id, nombre_walkin, servicios_cortes(nombre)')
       .eq('barbero_id', yo.id).eq('estado', 'EN_COLA').eq('tipo', 'WALKIN').order('fecha_hora').limit(20);
-    setCola((data ?? []) as typeof cola);
+    setCola((data ?? []) as unknown as typeof cola);
   }
   useEffect(() => { cargarCola(); }, [yo.id, yo.cola]);
   async function empezar(id: string) {

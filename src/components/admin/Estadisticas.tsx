@@ -76,10 +76,11 @@ export default function Estadisticas({ datos }: { datos: DatosBarberia }) {
   }, [citas, barberos]);
   const frecuentes = useMemo(() => {
     const m = new Map<string, { nombre: string; n: number }>();
+    // Solo clientes con documento: los cortes anónimos no son una misma persona, no se agrupan.
     for (const c of citas) {
-      const clave = c.clientes?.dni || c.nombre_walkin || 'anónimo';
-      const nombre = c.clientes?.nombre || c.nombre_walkin || 'Sin nombre';
-      m.set(clave, { nombre, n: (m.get(clave)?.n ?? 0) + 1 });
+      if (!c.clientes?.dni) continue;
+      const nombre = c.clientes.nombre || c.clientes.dni;
+      m.set(c.clientes.dni, { nombre, n: (m.get(c.clientes.dni)?.n ?? 0) + 1 });
     }
     return [...m.values()].sort((a, b) => b.n - a.n).slice(0, 6).map((c) => ({ k: c.nombre, v: c.n }));
   }, [citas]);

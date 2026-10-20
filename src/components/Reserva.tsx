@@ -196,11 +196,17 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
           ) : (
             <>
               {anonimo ? (
-                <label>
-                  <span className="etiqueta">Tu nombre (para que el barbero te reconozca)</span>
-                  <input value={nombreAnon} onChange={(e) => setNombreAnon(e.target.value)} maxLength={60} autoComplete="name" className="campo" placeholder="Ej. Carlos" />
-                  <span className="block text-xs text-base-500 mt-1.5">Reserva anónima: no guardamos tu DNI ni sumas cortes a tu tarjeta de lealtad.</span>
-                </label>
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-semibold">Reserva anónima · sin DNI</span>
+                    <button type="button" onClick={() => setAnonimo(false)} className="text-xs text-acento-400 underline underline-offset-4">Usar mi DNI</button>
+                  </div>
+                  <label>
+                    <span className="etiqueta">Tu nombre (para que el barbero te reconozca)</span>
+                    <input value={nombreAnon} onChange={(e) => setNombreAnon(e.target.value)} maxLength={60} autoComplete="name" className="campo" placeholder="Ej. Carlos" />
+                  </label>
+                  <span className="text-xs text-base-500">No guardamos tu DNI ni sumas cortes a tu tarjeta de lealtad.</span>
+                </div>
               ) : (
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span>{cliente!.nombre} · DNI ••••{cliente!.dni.slice(-3)}</span>
