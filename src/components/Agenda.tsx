@@ -307,6 +307,8 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
   const [telefono, setTelefono] = useState('');
   const [registrado, setRegistrado] = useState(false);
+  // Cliente que ya existe con ese documento: no hay nada que registrar.
+  const [existente, setExistente] = useState<{ id: string; nombre: string | null } | null>(null);
   const [registrando, setRegistrando] = useState(false);
   // Cambiar el documento invalida el "ya registrado": nunca se registra solo, solo al pulsar el botón.
   useEffect(() => setRegistrado(false), [dni, tipo]);
@@ -351,14 +353,16 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
 
   // Historial "lo de siempre": solo al tener un documento completo y en modo con documento.
   useEffect(() => {
-    setHistorial(null);
+    setHistorial(null); setExistente(null);
     if (anonimo) return;
     const valido = tipo === 'DNI' ? dni.length === 8 : dni.length >= 6;
     if (!valido) return;
     let vivo = true;
     (async () => {
       const { data: encontrados } = await supabase.rpc('buscar_cliente_dni', { p_dni: dni });
-      const id = (encontrados as { id: string }[] | null)?.[0]?.id;
+      const hallado = (encontrados as { id: string; nombre: string | null }[] | null)?.[0];
+      const id = hallado?.id;
+      if (vivo) setExistente(hallado ? { id: hallado.id, nombre: hallado.nombre } : null);
       if (!id) { if (vivo) setHistorial([]); return; }
       const { data } = await supabase.from('citas').select('fecha_hora, servicios_cortes(nombre), barberos(nombre)')
         .eq('barberia_id', barberiaId).eq('cliente_id', id).eq('estado', 'COMPLETADA')
@@ -464,7 +468,9 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
             <input value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={2} maxLength={60} className="campo" /></label>
           <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
             <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" maxLength={15} className="campo" placeholder="9xx xxx xxx" /></label>
-          {registrado ? (
+          {existente ? (
+            <p className="text-sm font-semibold text-emerald-500">✅ Ya está registrado{existente.nombre ? `: ${existente.nombre}` : ''}. No hace falta registrarlo otra vez.</p>
+          ) : registrado ? (
             <p className="text-sm font-semibold text-emerald-500">✅ Cliente registrado. Puede vincular su cuenta entrando a la web con Google.</p>
           ) : (
             <button type="button" className="btn w-fit" onClick={registrarSinCita}
