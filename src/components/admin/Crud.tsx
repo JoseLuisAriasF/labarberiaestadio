@@ -55,7 +55,7 @@ export default function Crud<T extends { id: string }>({ tabla, barberiaId, camp
 
   const v = (k: string) => (editando as Record<string, unknown> | null)?.[k];
   return (
-    <section className="grid gap-3">
+    <section data-crud={tabla} className="grid gap-3">
       <div className="flex items-center justify-between">
         <h2 className="titulo text-lg">{titulo}</h2>
         <button className="btn-acento" onClick={() => setEditando({ ...(nuevo ?? {}) } as Partial<T>)}><Plus className="size-4" /> Nuevo</button>

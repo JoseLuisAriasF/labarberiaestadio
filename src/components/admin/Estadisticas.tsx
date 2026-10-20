@@ -76,10 +76,11 @@ export default function Estadisticas({ datos }: { datos: DatosBarberia }) {
   }, [citas, barberos]);
   const frecuentes = useMemo(() => {
     const m = new Map<string, { nombre: string; n: number }>();
+    // Solo clientes con documento: los cortes anónimos no son una misma persona, no se agrupan.
     for (const c of citas) {
-      const clave = c.clientes?.dni || c.nombre_walkin || 'anónimo';
-      const nombre = c.clientes?.nombre || c.nombre_walkin || 'Sin nombre';
-      m.set(clave, { nombre, n: (m.get(clave)?.n ?? 0) + 1 });
+      if (!c.clientes?.dni) continue;
+      const nombre = c.clientes.nombre || c.clientes.dni;
+      m.set(c.clientes.dni, { nombre, n: (m.get(c.clientes.dni)?.n ?? 0) + 1 });
     }
     return [...m.values()].sort((a, b) => b.n - a.n).slice(0, 6).map((c) => ({ k: c.nombre, v: c.n }));
   }, [citas]);
@@ -91,12 +92,12 @@ export default function Estadisticas({ datos }: { datos: DatosBarberia }) {
         <input type="month" className="campo !w-auto ml-auto" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} />
       </div>
       {error && <Aviso>{error}</Aviso>}
-      <div className="grid grid-cols-3 gap-2 text-center">
+      <div data-ayuda="est-resumen" className="grid grid-cols-3 gap-2 text-center">
         <div className="panel"><p className="text-lg font-bold">{soles(ingresos)}</p><p className="text-xs text-[var(--texto-suave)]">facturado</p></div>
         <div className="panel"><p className="text-lg font-bold">{citas.length}</p><p className="text-xs text-[var(--texto-suave)]">cortes</p></div>
         <div className="panel"><p className="text-lg font-bold">{soles(citas.length ? ingresos / citas.length : 0)}</p><p className="text-xs text-[var(--texto-suave)]">ticket promedio</p></div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div data-ayuda="est-graficos" className="grid gap-4 sm:grid-cols-2">
         <Barras titulo="Ingresos por día (S/)" filas={porDia} fmt={(v) => soles(v).replace('S/ ', '')} />
         <Barras titulo="Servicios más pedidos" filas={servicios} />
         <Barras titulo="Horas con más cortes" filas={horas} />

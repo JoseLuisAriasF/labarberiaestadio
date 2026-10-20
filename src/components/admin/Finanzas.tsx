@@ -71,7 +71,7 @@ export default function Finanzas({ datos, recargar }: { datos: DatosBarberia; re
 
   return (
     <div className="grid gap-6">
-      <section className="neu rounded-2xl p-4 grid gap-4">
+      <section data-ayuda="fin-modelo" className="neu rounded-2xl p-4 grid gap-4">
         <h3 className="titulo">Modelo financiero</h3>
         <div className="grid sm:grid-cols-2 gap-3">
           {([
@@ -92,7 +92,7 @@ export default function Finanzas({ datos, recargar }: { datos: DatosBarberia; re
       {error && <Aviso>{error}</Aviso>}
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
 
-      <section className="grid gap-3">
+      <section data-ayuda="fin-reporte" className="grid gap-3">
         <div className="flex items-center gap-2">
           <h3 className="titulo">Reporte del mes</h3>
           <input type="month" className="campo !w-auto ml-auto" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} />
@@ -128,7 +128,7 @@ export default function Finanzas({ datos, recargar }: { datos: DatosBarberia; re
         </div>
       </section>
 
-      <section className="grid gap-3">
+      <section data-ayuda="fin-gastos" className="grid gap-3">
         <h3 className="titulo">Gastos del mes</h3>
         <form onSubmit={agregarGasto} className="panel grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
           <label><span className="etiqueta">Concepto</span><input name="concepto" required minLength={2} placeholder="Luz, alquiler del local…" className="campo" /></label>

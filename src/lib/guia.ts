@@ -1,4 +1,5 @@
 // Guía interactiva (driver.js, como en Papichulo). Cada paso apunta a un elemento con data-guia.
+import { AYUDA, EL_AYUDA } from './ayuda';
 type Rol = 'cliente' | 'admin' | 'barbero';
 type Paso = { el: string; titulo: string; texto: string };
 
@@ -12,7 +13,10 @@ const TOURS: Record<Rol, Paso[]> = {
   ],
   admin: [
     { el: '[data-guia="tab-agenda"]', titulo: 'Citas', texto: 'Aquí llegan las reservas y los pagos por validar.' },
-    { el: '[data-guia="tab-equipo"]', titulo: 'Barberos', texto: 'Agrega barberos: se crea su usuario y clave, y les llega el correo si lo pusiste.' },
+    { el: '[data-guia="tab-equipo"]', titulo: 'Barberos', texto: 'Agrega barberos y su usuario y clave. Solo tú asignas permisos: un administrador de confianza o módulos sueltos.' },
+    { el: '[data-guia="tab-local"]', titulo: 'Local', texto: 'Datos del local, horario, Yape/Plin, QR de pago y logo. Aquí también publicas la ficha en Google.' },
+    { el: '[data-guia="tab-productos"]', titulo: 'Productos', texto: 'Productos a la venta: precio, stock y si están publicados.' },
+    { el: '[data-guia="tab-festivos"]', titulo: 'Festivos', texto: 'Temas especiales para fechas festivas en la web pública.' },
     { el: '[data-guia="tab-servicios"]', titulo: 'Servicios', texto: 'Define cortes, precios y duración.' },
     { el: '[data-guia="tab-pisos"]', titulo: 'Pisos 3D', texto: 'Diseña el local y asigna cada barbero a su silla.' },
     { el: '[data-guia="tab-clientes"]', titulo: 'Clientes', texto: 'Lista de clientes con su cartilla de premios y su historial.' },
@@ -67,6 +71,31 @@ export async function iniciarGuia(rol: Rol) {
         },
       };
     });
+  if (steps.length === 0) return;
+  driver({
+    steps, showProgress: true, allowClose: true, smoothScroll: true, stagePadding: 6, stageRadius: 14,
+    nextBtnText: 'Siguiente', prevBtnText: 'Atrás', doneBtnText: 'Listo', progressText: 'Paso {{current}} de {{total}}',
+    popoverClass: 'guia-tour',
+  }).drive();
+}
+
+/** Ayuda guiada de la vista abierta: un paso por cada punto, para que el texto quepa en el celular. */
+export async function iniciarAyudaVista(vista: string) {
+  const ayuda = AYUDA[vista];
+  if (!ayuda) return;
+  await cargarDriver();
+  const driver = (window as unknown as DriverGlobal).driver!.js!.driver;
+  const steps: { element?: string; popover: { title: string; description: string } }[] = [];
+  let ultimo = `[data-vista="${vista}"]`;
+  for (const sec of ayuda.secciones) {
+    const el = EL_AYUDA[vista]?.[sec.titulo];
+    const destino = el && document.querySelector(el) ? el : ultimo;
+    ultimo = destino;
+    sec.items.forEach((texto, n) => {
+      const titulo = sec.items.length > 1 ? `${sec.titulo} (${n + 1}/${sec.items.length})` : sec.titulo;
+      steps.push({ element: destino, popover: { title: titulo, description: texto } });
+    });
+  }
   if (steps.length === 0) return;
   driver({
     steps, showProgress: true, allowClose: true, smoothScroll: true, stagePadding: 6, stageRadius: 14,

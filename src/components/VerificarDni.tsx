@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
+import { consultarDni } from '@/lib/dni';
 import { Aviso, Insignia } from './ui';
 
 /** Método B anti-trolls: el staff marca 100% verificado a un cliente conocido por su DNI. */
@@ -8,14 +9,39 @@ export default function VerificarDni() {
   const [dni, setDni] = useState('');
   const [cliente, setCliente] = useState<{ nombre: string | null; dni: string; estado_verificacion: string } | null>(null);
   const [aviso, setAviso] = useState<{ t: 'ok' | 'error' | 'info'; m: string } | null>(null);
+  const [buscado, setBuscado] = useState(false);
+  const [nombreReg, setNombreReg] = useState('');
+  const [guardando, setGuardando] = useState(false);
 
   async function buscar(e: React.FormEvent) {
     e.preventDefault();
-    setAviso(null); setCliente(null);
+    setAviso(null); setCliente(null); setBuscado(false);
     const { data, error } = await supabase.rpc('buscar_cliente_dni', { p_dni: dni });
+    setBuscado(true);
     if (error) return setAviso({ t: 'error', m: msg(error) });
-    if (!data?.length) return setAviso({ t: 'info', m: 'No hay cliente con ese DNI. Pídele que entre a la web con Google y registre su DNI.' });
+    if (!data?.length) {
+      setAviso({ t: 'info', m: 'Cliente nuevo. Revisa el nombre y regístralo: después solo tendrá que entrar a la web con Google y confirmar su DNI.' });
+      // Autocompleta nombre y apellidos desde el DNI; si no hay dato, se escribe a mano.
+      const r = await consultarDni(dni);
+      if (r.nombre) setNombreReg(r.nombre);
+      else if (r.error) setAviso({ t: 'info', m: r.error });
+      return;
+    }
     setCliente(data[0]);
+  }
+
+  /** Alta rápida: el cliente queda con cartilla lista, sin cuenta hasta que entre a la web. */
+  async function registrarRapido(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    setGuardando(true); setAviso(null);
+    const { data, error } = await supabase.rpc('barbero_registrar_cliente', {
+      p_dni: dni, p_tipo: 'DNI', p_nombre: String(f.get('nombre')).trim(), p_telefono: String(f.get('telefono')).trim(),
+    });
+    setGuardando(false);
+    if (error) return setAviso({ t: 'error', m: msg(error) });
+    setCliente(data as { nombre: string | null; dni: string; estado_verificacion: string });
+    setAviso({ t: 'ok', m: 'Cliente registrado y verificado 100%, porque vino al local. Para vincular su cuenta, pídele que entre a la web con Google y confirme su DNI.' });
   }
   async function verificar() {
     const { error } = await supabase.rpc('verificar_cliente_dni', { p_dni: dni });
@@ -25,12 +51,22 @@ export default function VerificarDni() {
   }
 
   return (
-    <section className="neu rounded-2xl p-4 grid gap-3">
+    <section data-ayuda="clientes-verificar" className="neu rounded-2xl p-4 grid gap-3">
       <h3 className="titulo">🛡️ Verificar cliente por DNI</h3>
       <form onSubmit={buscar} className="flex gap-2">
-        <input className="campo" inputMode="numeric" pattern="[0-9]{8}" maxLength={8} required placeholder="DNI (8 dígitos)" value={dni} onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))} />
+        <input className="campo" inputMode="numeric" pattern="[0-9]{8}" maxLength={8} required placeholder="DNI (8 dígitos)" value={dni} onChange={(e) => { setDni(e.target.value.replace(/\D/g, '')); setBuscado(false); setCliente(null); setAviso(null); setNombreReg(''); }} />
         <button className="btn">Buscar</button>
       </form>
+      {buscado && !cliente && (
+        <form onSubmit={registrarRapido} className="grid gap-3 neu-inset rounded-xl p-3" aria-label="Registro rápido de cliente">
+          <p className="text-sm font-semibold">Nuevo cliente · DNI {dni}</p>
+          <label><span className="etiqueta">Nombre y apellidos</span>
+            <input name="nombre" value={nombreReg} onChange={(e) => setNombreReg(e.target.value)} required minLength={2} maxLength={60} className="campo" autoFocus /></label>
+          <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
+            <input name="telefono" type="tel" inputMode="tel" pattern="\+?[0-9 ]{6,15}" className="campo" placeholder="9xx xxx xxx" /></label>
+          <button disabled={guardando} className="btn-acento">{guardando ? 'Registrando…' : 'Registrar cliente'}</button>
+        </form>
+      )}
       {cliente && (
         <div className="flex flex-wrap items-center gap-3 neu-inset rounded-xl p-3">
           <span className="flex-1 text-sm"><b>{cliente.nombre}</b> · DNI {cliente.dni}</span>

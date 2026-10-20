@@ -23,9 +23,59 @@ const claveAleatoria = () => {
   return `Corte${(r[0] % 9000) + 1000}${r[1].toString(36).slice(0, 4)}`;
 };
 
-export default function Equipo({ datos, recargar }: { datos: DatosBarberia; recargar: () => void }) {
+/** Módulos del panel de administración que el dueño puede delegar. */
+export const MODULOS: { k: string; t: string }[] = [
+  { k: 'agenda', t: 'Citas' }, { k: 'clientes', t: 'Clientes' }, { k: 'finanzas', t: 'Finanzas' },
+  { k: 'estadisticas', t: 'Estadísticas' }, { k: 'equipo', t: 'Barberos' }, { k: 'servicios', t: 'Servicios' },
+  { k: 'lealtad', t: 'Lealtad' }, { k: 'productos', t: 'Productos' }, { k: 'pisos', t: 'Pisos 3D' },
+  { k: 'local', t: 'Local' }, { k: 'festivos', t: 'Festivos' },
+];
+
+/** Solo el dueño: marca a un barbero como administrador de confianza o le da módulos sueltos. */
+function PermisosForm({ b, onListo }: { b: Barbero; onListo: () => void }) {
+  const [admin, setAdmin] = useState(!!b.es_admin);
+  const [sel, setSel] = useState<string[]>(b.permisos ?? []);
+  const [error, setError] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const alternar = (k: string) => setSel((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
+
+  async function guardar() {
+    setError(''); setGuardando(true);
+    const { error } = await supabase.rpc('barbero_set_permisos', { p_barbero: b.id, p_es_admin: admin, p_permisos: admin ? [] : sel });
+    setGuardando(false);
+    if (error) return setError(msg(error));
+    onListo();
+  }
+
+  return (
+    <div className="grid gap-4">
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--borde)] p-3">
+        <input type="checkbox" checked={admin} onChange={(e) => setAdmin(e.target.checked)} className="mt-1 size-5 accent-[var(--acento,#f59e0b)]" />
+        <span><b className="block text-sm">Administrador de confianza</b>
+          <span className="block text-xs text-base-500">Acceso a todos los módulos del panel de administración.</span></span>
+      </label>
+      <div className={`grid gap-2 ${admin ? 'opacity-40' : ''}`} aria-disabled={admin}>
+        <p className="etiqueta !mb-0">O elige solo algunos módulos</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {MODULOS.map((m) => (
+            <label key={m.k} className="flex items-center gap-2 rounded-xl border border-[var(--borde)] px-3 py-2 text-sm">
+              <input type="checkbox" disabled={admin} checked={sel.includes(m.k)} onChange={() => alternar(m.k)} className="size-4" />
+              {m.t}
+            </label>
+          ))}
+        </div>
+      </div>
+      <p className="text-xs text-base-500">Quien tenga permiso puede modificar ese módulo. Crear cuentas de barberos sigue siendo solo del dueño.</p>
+      {error && <Aviso>{error}</Aviso>}
+      <button disabled={guardando} onClick={guardar} className="btn-acento w-fit">{guardando ? 'Guardando…' : 'Guardar permisos'}</button>
+    </div>
+  );
+}
+
+export default function Equipo({ datos, recargar, esDueno = true }: { datos: DatosBarberia; recargar: () => void; esDueno?: boolean }) {
   const { barberia, barberos } = datos;
   const [nuevo, setNuevo] = useState(false);
+  const [permisosDe, setPermisosDe] = useState<Barbero | null>(null);
   const [credencial, setCredencial] = useState<{ usuario: string; clave: string } | null>(null);
   const [error, setError] = useState('');
 
@@ -62,9 +112,9 @@ export default function Equipo({ datos, recargar }: { datos: DatosBarberia; reca
 
   return (
     <section className="grid gap-3">
-      <div className="flex items-center justify-between">
+      <div data-ayuda="equipo-cabecera" className="flex items-center justify-between">
         <h2 className="titulo text-lg">Barberos</h2>
-        <button className="btn-acento" onClick={() => setNuevo(true)}><Plus className="size-4" /> Nuevo barbero</button>
+        {esDueno && <button className="btn-acento" onClick={() => setNuevo(true)}><Plus className="size-4" /> Nuevo barbero</button>}
       </div>
       {error && <Aviso>{error}</Aviso>}
       {credencial && (
@@ -73,7 +123,7 @@ export default function Equipo({ datos, recargar }: { datos: DatosBarberia; reca
           Deberá cambiarla en su primer ingreso.
         </Aviso>
       )}
-      <ul className="grid gap-2">
+      <ul data-ayuda="equipo-lista" className="grid gap-2">
         {barberos.map((b) => (
           <li key={b.id} className={`neu-sm rounded-xl p-3 flex flex-wrap items-center gap-3 ${b.activo ? '' : 'opacity-50'}`}>
             <label className="relative cursor-pointer shrink-0" title="Cambiar foto">
@@ -95,12 +145,19 @@ export default function Equipo({ datos, recargar }: { datos: DatosBarberia; reca
                   onBlur={(e) => actualizar(b, { comision_pct: e.target.value === '' ? null : Number(e.target.value) })} />%
               </label>
             )}
-            <button className="btn !py-1 text-xs" onClick={() => resetear(b)}><KeyRound className="size-3" /> Clave</button>
-            <button className="btn !py-1 text-xs" onClick={() => activo(b)}>{b.activo ? 'Dar de baja' : 'Reactivar'}</button>
+            {esDueno && <>
+              <button className="btn !py-1 text-xs" onClick={() => setPermisosDe(b)}>🔑 Permisos{b.es_admin ? ' · admin' : ''}</button>
+              <button className="btn !py-1 text-xs" onClick={() => resetear(b)}><KeyRound className="size-3" /> Clave</button>
+              <button className="btn !py-1 text-xs" onClick={() => activo(b)}>{b.activo ? 'Dar de baja' : 'Reactivar'}</button>
+            </>}
           </li>
         ))}
         {barberos.length === 0 && <p className="text-sm text-base-400 text-center py-6">Crea a tu primer barbero.</p>}
       </ul>
+
+      <Hoja abierta={!!permisosDe} onClose={() => setPermisosDe(null)} titulo={`Permisos de ${permisosDe?.nombre ?? ''}`}>
+        {permisosDe && <PermisosForm key={permisosDe.id} b={permisosDe} onListo={() => { setPermisosDe(null); recargar(); }} />}
+      </Hoja>
 
       <Hoja abierta={nuevo} onClose={() => setNuevo(false)} titulo="Nuevo barbero">
         <form onSubmit={crear} className="grid gap-3">

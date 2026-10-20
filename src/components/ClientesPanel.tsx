@@ -39,6 +39,94 @@ export function Tarjetas({ tarjetas }: { tarjetas: Tarjeta[] }) {
   );
 }
 
+type DatosCli = { nombre: string | null; telefono: string | null; email: string | null; usuario_id: string | null };
+
+/** Editar nombre, celular y correo. Eliminar exige dos pasos y escribir ELIMINAR. */
+function DatosCliente({ clienteId, onCambio, onEliminado }: { clienteId: string; onCambio: () => void; onEliminado: () => void }) {
+  const [c, setC] = useState<DatosCli | null>(null);
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [paso, setPaso] = useState<0 | 1 | 2>(0);
+  const [confirmacion, setConfirmacion] = useState('');
+
+  useEffect(() => {
+    supabase.from('clientes').select('nombre, telefono, email, usuario_id').eq('id', clienteId).maybeSingle()
+      .then(({ data, error }) => { if (error) setError(msg(error)); else setC(data as DatosCli | null); });
+  }, [clienteId]);
+
+  if (!c) return error ? <Aviso>{error}</Aviso> : <p className="text-sm text-[var(--texto-suave)]">Cargando datos…</p>;
+
+  async function guardar(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    setGuardando(true); setError(''); setOk('');
+    const { data, error } = await supabase.rpc('staff_editar_cliente', {
+      p_cliente: clienteId, p_nombre: String(f.get('nombre')), p_telefono: String(f.get('telefono')), p_email: String(f.get('email')),
+    });
+    setGuardando(false);
+    if (error) return setError(msg(error));
+    setC(data as DatosCli);
+    setOk('Datos guardados');
+    onCambio();
+  }
+
+  async function eliminar() {
+    setGuardando(true); setError('');
+    const { error } = await supabase.rpc('staff_eliminar_cliente', { p_cliente: clienteId });
+    setGuardando(false);
+    if (error) return setError(msg(error));
+    onEliminado();
+  }
+
+  return (
+    <div className="grid gap-5">
+      <form data-ayuda="clientes-datos" onSubmit={guardar} className="grid gap-3" aria-label="Datos del cliente">
+        <p className="etiqueta !mb-0">Datos del cliente</p>
+        <label><span className="etiqueta">Nombre y apellidos</span>
+          <input name="nombre" required minLength={2} maxLength={60} defaultValue={c.nombre ?? ''} className="campo" /></label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label><span className="etiqueta">Celular</span>
+            <input name="telefono" type="tel" inputMode="tel" defaultValue={c.telefono ?? ''} placeholder="9xx xxx xxx" className="campo" /></label>
+          <label><span className="etiqueta">Correo</span>
+            <input name="email" type="email" defaultValue={c.email ?? ''} placeholder="cliente@correo.com" className="campo" /></label>
+        </div>
+        {c.usuario_id && <p className="text-xs text-[var(--texto-suave)]">Tiene cuenta propia: también puede cambiar estos datos desde su perfil.</p>}
+        {error && <Aviso>{error}</Aviso>}
+        {ok && <Aviso tipo="ok">{ok}</Aviso>}
+        <button disabled={guardando} className="btn-acento w-fit">{guardando ? 'Guardando…' : 'Guardar cambios'}</button>
+      </form>
+
+      <div className="grid gap-3 rounded-2xl border border-red-500/40 p-4">
+        <p className="text-sm font-semibold text-red-500">Zona de peligro</p>
+        {c.usuario_id ? (
+          <p className="text-xs text-[var(--texto-suave)]">Este cliente tiene cuenta propia y no se puede eliminar desde el panel.</p>
+        ) : paso === 0 ? (
+          <button type="button" className="btn w-fit text-red-500" onClick={() => setPaso(1)}>Eliminar cliente…</button>
+        ) : paso === 1 ? (
+          <div className="grid gap-2">
+            <p className="text-sm">¿Seguro? Se borra su ficha y su cartilla de cortes. Su historial de citas queda con su nombre.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn" onClick={() => setPaso(0)}>No, volver</button>
+              <button type="button" className="btn text-red-500" onClick={() => setPaso(2)}>Sí, continuar</button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            <label><span className="etiqueta">Para confirmar, escribe ELIMINAR</span>
+              <input value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} autoComplete="off" className="campo" /></label>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn" onClick={() => { setPaso(0); setConfirmacion(''); }}>Cancelar</button>
+              <button type="button" disabled={confirmacion !== 'ELIMINAR' || guardando} onClick={eliminar}
+                className="btn border-red-600 bg-red-600 text-white disabled:opacity-40">Eliminar definitivamente</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
   const [lista, setLista] = useState<Resumen[]>([]);
   const [q, setQ] = useState('');
@@ -46,12 +134,13 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
   const [abierto, setAbierto] = useState<Resumen | null>(null);
   const [tarjetas, setTarjetas] = useState<Tarjeta[]>([]);
   const [historial, setHistorial] = useState<Historial[]>([]);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     supabase.rpc('resumen_clientes', { p_barberia: barberiaId }).then(({ data, error }) => {
       if (error) setError(msg(error)); else setLista((data ?? []) as Resumen[]);
     });
-  }, [barberiaId]);
+  }, [barberiaId, version]);
 
   async function abrir(c: Resumen) {
     setAbierto(c); setTarjetas([]); setHistorial([]);
@@ -73,7 +162,7 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
     <div className="grid gap-5">
       <VerificarDni />
       <section className="grid gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-ayuda="clientes-lista" className="flex flex-wrap items-center gap-2">
           <h3 className="titulo">Clientes ({lista.length})</h3>
           <input className="campo ml-auto !w-64" placeholder="Buscar por nombre o documento" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -98,6 +187,9 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
         {abierto && (
           <div className="grid gap-5">
             <p className="text-sm text-[var(--texto-suave)]">{abierto.documento_tipo} {abierto.documento} · {abierto.cortes} cortes completados</p>
+            <DatosCliente key={abierto.cliente_id} clienteId={abierto.cliente_id}
+              onCambio={() => setVersion((v) => v + 1)}
+              onEliminado={() => { setAbierto(null); setVersion((v) => v + 1); }} />
             <div className="grid gap-2">
               <p className="etiqueta">Cartillas y premios</p>
               <Tarjetas tarjetas={tarjetas} />

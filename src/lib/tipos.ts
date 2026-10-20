@@ -2,7 +2,7 @@ export type EstadoBarbero = 'LIBRE' | 'CORTANDO_CITA' | 'CORTANDO_WALKIN' | 'DES
 export type Horario = Record<string, [string, string] | null>; // "1".."7" (ISO, 1 = lunes)
 
 export interface Barberia {
-  id: string; codigo: string; nombre: string; descripcion?: string | null;
+  id: string; codigo: string; nombre: string; descripcion?: string | null; logo_url?: string | null;
   telefono?: string | null; whatsapp?: string | null; email_contacto?: string | null;
   direccion?: string | null; referencia?: string | null; distrito?: string | null; ciudad?: string | null;
   lat?: number | null; lng?: number | null; horario: Horario; fotos: string[];
@@ -17,7 +17,8 @@ export interface Silla { id: string; barberia_id: string; piso_id: string; posic
 export interface Barbero {
   id: string; barberia_id: string; usuario: string; nombre: string; avatar_url?: string | null; bio?: string | null;
   especialidades_bestseller: string[]; horario_atencion: Horario;
-  estado: EstadoBarbero; estado_desde: string; estado_hasta: string | null; cola: number;
+  estado: EstadoBarbero; estado_desde: string; estado_hasta: string | null; cola: number; presente: boolean;
+  es_admin?: boolean; permisos?: string[];
   comision_pct: number | null; yape_numero?: string | null; plin_numero?: string | null;
   email_real?: string | null; telefono_real?: string | null; whatsapp?: string | null;
   debe_cambiar_clave: boolean; activo: boolean; usuario_id?: string | null;

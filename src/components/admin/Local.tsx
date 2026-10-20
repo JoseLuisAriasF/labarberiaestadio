@@ -80,7 +80,7 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
 
   return (
     <div className="grid gap-5">
-      <section className="grid sm:grid-cols-2 gap-3">
+      <section data-ayuda="local-datos" className="grid sm:grid-cols-2 gap-3">
         {txt('nombre', 'Nombre de la barbería', { required: true, maxLength: 80 })}
         {txt('telefono', 'Teléfono', { type: 'tel' })}
         {txt('whatsapp', 'WhatsApp (con 51)', { type: 'tel', placeholder: '51987654321' })}
@@ -97,7 +97,7 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
           <textarea className="campo" rows={3} maxLength={600} value={b.descripcion ?? ''} onChange={(e) => set('descripcion', e.target.value)} /></label>
       </section>
 
-      <section className="grid gap-3">
+      <section data-ayuda="local-ubicacion" className="grid gap-3">
         <h3 className="titulo">📍 Ubicación del local</h3>
         <div className="grid sm:grid-cols-3 gap-3">
           {txt('direccion', 'Dirección exacta', { placeholder: 'Av. José Díaz 123' })}
@@ -113,7 +113,7 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
         <div ref={div} className="h-80 rounded-2xl neu-inset overflow-hidden z-0" />
       </section>
 
-      <section className="grid gap-3">
+      <section data-ayuda="local-horario" className="grid gap-3">
         <h3 className="titulo">🕘 Horario general</h3>
         <EditorHorario valor={b.horario as Horario} onChange={(h) => set('horario', h)} />
       </section>
@@ -132,7 +132,7 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
         </div>
       </section>
 
-      <section className="grid gap-3">
+      <section data-ayuda="local-cobros" className="grid gap-3">
         <h3 className="titulo">💜 Cobros por Yape / Plin (modo centralizado)</h3>
         <div className="grid sm:grid-cols-3 gap-3">
           {txt('yape_numero', 'Número Yape', { inputMode: 'tel' })}
@@ -144,7 +144,7 @@ export default function Local({ barberia, recargar }: { barberia: Barberia; reca
         {b.qr_pago_url && <img src={b.qr_pago_url} alt="QR" className="w-32 rounded-xl" />}
       </section>
 
-      <section className="grid gap-3">
+      <section data-ayuda="local-qr" className="grid gap-3">
         <h3 className="titulo"><QrCode className="inline size-5" /> QR para reservas</h3>
         <p className="text-xs text-base-500">Imprime este QR y colócalo en el local. Los clientes lo escanean y van directo a reservar.</p>
         <QrBooking codigo={barberia.codigo} nombre={barberia.nombre} />

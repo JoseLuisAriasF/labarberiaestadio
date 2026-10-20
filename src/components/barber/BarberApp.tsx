@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { CalendarDays, Clock, User, Users } from 'lucide-react';
+import { CalendarDays, Clock, Scissors, User, Users } from 'lucide-react';
 import { msg, subirImagen, suscribirPush, supabase } from '@/lib/supabase';
 import { useBarberia } from '@/lib/useBarberia';
 import type { Barbero, EstadoBarbero, Horario } from '@/lib/tipos';
 import { ESTADOS, soles } from '@/lib/tipos';
-import Agenda from '../Agenda';
+import Agenda, { Walkin } from '../Agenda';
+import HoyYManana from './Inicio';
 import EditorHorario from '../Horario';
 import ClientesPanel from '../ClientesPanel';
-import { BotonAccion } from '../ui';
-import { iniciarGuia } from '@/lib/guia';
+import { BotonAccion, Hoja } from '../ui';
+import { iniciarAyudaVista } from '@/lib/guia';
 import { Aviso, Cargando } from '../ui';
 
 export default function BarberApp() {
   const [yo, setYo] = useState<Barbero | null>(null);
   const [tab, setTab] = useState<'jornada' | 'agenda' | 'perfil' | 'clientes'>('jornada');
+  const [nuevoCorte, setNuevoCorte] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -34,28 +36,56 @@ export default function BarberApp() {
   if (vivo.debe_cambiar_clave) return <CambiarClave onListo={() => { setYo({ ...yo, debe_cambiar_clave: false }); recargar(); }} />;
 
   const { barberia } = datos;
+  async function cerrarSesion() {
+    await supabase.auth.signOut();
+    location.replace('/login');
+  }
   return (
-    <div className="grid gap-5 max-w-3xl mx-auto pb-28 sm:pb-0">
+    <div data-vista={tab} className="grid gap-5 max-w-3xl mx-auto pb-28 sm:pb-0">
       <header className="flex items-center gap-3">
-        {vivo.avatar_url ? <img src={vivo.avatar_url} alt="" className="size-12 rounded-full object-cover" />
-          : <span className="size-12 rounded-full grid place-items-center bg-acento-500 text-white font-bold">{vivo.nombre.slice(0, 2).toUpperCase()}</span>}
-        <div className="flex-1">
+        {/* Tocar la foto o las iniciales abre "Mi perfil" para cambiar foto y datos. */}
+        <button type="button" onClick={() => setTab('perfil')} aria-label="Editar mi perfil" className="shrink-0 rounded-full ring-2 ring-transparent hover:ring-acento-500/60 transition">
+          {vivo.avatar_url ? <img src={vivo.avatar_url} alt="" className="size-12 rounded-full object-cover" />
+            : <span className="grid size-12 place-items-center rounded-full bg-acento-500 font-bold text-black">{vivo.nombre.slice(0, 2).toUpperCase()}</span>}
+        </button>
+        <div className="min-w-0 flex-1">
           <h1 className="titulo text-lg">Hola, {vivo.nombre.split(' ')[0]} ✂️</h1>
-          <p className="text-xs text-base-500">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
+          <p className="text-xs text-base-500 truncate">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
         </div>
+        <button type="button" onClick={cerrarSesion} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
       </header>
       <div className="flex justify-end -mb-2">
-        <button type="button" onClick={() => iniciarGuia('barbero')} className="btn !py-1.5 text-xs">¿Cómo uso la app?</button>
+        <button type="button" onClick={() => iniciarAyudaVista(tab)} className="btn !py-1.5 text-xs">❔ Ayuda de esta sección</button>
       </div>
-      <nav aria-label="Secciones" className="neu-inset rounded-2xl p-1 grid grid-cols-4 gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
-        {([['jornada', 'Jornada', Clock], ['agenda', 'Citas', CalendarDays], ['clientes', 'Clientes', Users], ['perfil', 'Mi perfil', User]] as const).map(([id, t, I]) => (
+      <nav aria-label="Secciones" className="neu-inset rounded-2xl p-1 grid grid-cols-5 gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
+        {([['jornada', 'Inicio', Clock], ['agenda', 'Citas', CalendarDays]] as const).map(([id, t, I]) => (
+          <button key={id} onClick={() => setTab(id)} data-guia={`tab-${id}`} aria-pressed={tab === id}
+            className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
+            <I className="size-5" />{t}
+          </button>
+        ))}
+        <button type="button" onClick={() => setNuevoCorte(true)} data-guia="nuevo-corte" aria-label="Nuevo corte sin cita"
+          className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-xs font-bold text-acento-400">
+          <span className="-mt-5 grid size-12 place-items-center rounded-full bg-red-800 text-white shadow-lg"><Scissors className="size-6" /></span>
+          Corte
+        </button>
+        {([['clientes', 'Clientes', Users], ['perfil', 'Mi perfil', User]] as const).map(([id, t, I]) => (
           <button key={id} onClick={() => setTab(id)} data-guia={`tab-${id}`} aria-pressed={tab === id}
             className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
             <I className="size-5" />{t}
           </button>
         ))}
       </nav>
-      {tab === 'jornada' && <Estado yo={vivo} />}
+      <Hoja abierta={nuevoCorte} onClose={() => setNuevoCorte(false)} titulo="Nuevo corte (sin cita)">
+        <Walkin barberiaId={vivo.barberia_id} barberos={[vivo]} servicios={datos.servicios}
+          onListo={() => { setNuevoCorte(false); setTab('jornada'); }} />
+      </Hoja>
+      {tab === 'jornada' && (
+        <>
+          <Estado yo={vivo} />
+          <HoyYManana barberoId={vivo.id} cola={vivo.cola} onVerCitas={() => setTab('agenda')} />
+        </>
+      )}
       {tab === 'agenda' && (
         <Agenda barberia={barberia} barberos={datos.barberos} servicios={datos.servicios} soloBarbero={vivo.id}
           // En modo INDIVIDUAL el dinero es suyo: él valida sus comprobantes.
@@ -75,7 +105,7 @@ function Estado({ yo }: { yo: Barbero }) {
   async function cargarCola() {
     const { data } = await supabase.from('citas').select('id, nombre_walkin, servicios_cortes(nombre)')
       .eq('barbero_id', yo.id).eq('estado', 'EN_COLA').eq('tipo', 'WALKIN').order('fecha_hora').limit(20);
-    setCola((data ?? []) as typeof cola);
+    setCola((data ?? []) as unknown as typeof cola);
   }
   useEffect(() => { cargarCola(); }, [yo.id, yo.cola]);
   async function empezar(id: string) {
@@ -88,11 +118,15 @@ function Estado({ yo }: { yo: Barbero }) {
     const { error } = await supabase.rpc('marcar_presencia', { p_barbero: yo.id, p_presente: presente });
     if (error) setError(msg(error));
   }
+  // Respuesta inmediata: el botón cambia al tocarlo y el realtime solo confirma (o deshace si falla).
+  const [pedido, setPedido] = useState<EstadoBarbero | null>(null);
+  useEffect(() => setPedido(null), [yo.estado]);
   async function cambiar(e: EstadoBarbero) {
     setError('');
     if ('vibrate' in navigator) navigator.vibrate(30);
+    setPedido(e);
     const { error } = await supabase.rpc('barbero_set_estado', { p_estado: e, p_minutos: minutos });
-    if (error) setError(msg(error));
+    if (error) { setError(msg(error)); setPedido(null); }
   }
   return (
     <section className="grid gap-4">
@@ -118,7 +152,7 @@ function Estado({ yo }: { yo: Barbero }) {
       )}
       <div data-guia="estado" className="grid grid-cols-2 gap-3">
         {(Object.keys(ESTADOS) as EstadoBarbero[]).map((e) => {
-          const s = ESTADOS[e], activo = yo.estado === e;
+          const s = ESTADOS[e], activo = (pedido ?? yo.estado) === e;
           return (
             <motion.button key={e} whileTap={{ scale: 0.94 }} onClick={() => cambiar(e)} aria-pressed={activo}
               className={`rounded-3xl p-5 min-h-32 grid place-items-center text-center gap-1 ${activo ? 'neu-inset ring-4' : 'neu'}`}
@@ -147,7 +181,8 @@ function CambiarClave({ onListo }: { onListo: () => void }) {
     if (a !== b) return setError('Las claves no coinciden');
     if (a.length < 6) return setError('Usa al menos 6 caracteres');
     const { error } = await supabase.auth.updateUser({ password: a });
-    if (error) return setError(msg(error));
+    // Si el barbero decide dejar la misma clave, el servidor la rechaza: la decisión es suya, así que se acepta.
+    if (error && !/different from the old password|debe ser diferente|diferente de la anterior/i.test(error.message)) return setError(msg(error));
     await supabase.rpc('clave_cambiada');
     onListo();
   }
@@ -200,7 +235,7 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
 
   return (
     <div className="grid gap-5">
-      <section className="neu rounded-2xl p-4 grid gap-3">
+      <section data-ayuda="perfil-datos" className="neu rounded-2xl p-4 grid gap-3">
         <div className="flex items-center gap-3">
           {avatar ? <img src={avatar} alt="" className="size-16 rounded-full object-cover" /> : <span className="size-16 rounded-full neu-inset grid place-items-center">📷</span>}
           <label className="btn cursor-pointer text-xs">Cambiar foto<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => foto(e.target.files?.[0])} /></label>
@@ -219,7 +254,7 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
           </div>
         )}
       </section>
-      <section className="neu rounded-2xl p-4 grid gap-3">
+      <section data-ayuda="perfil-horario" className="neu rounded-2xl p-4 grid gap-3">
         <h3 className="titulo">🕘 Mi horario de atención</h3>
         <EditorHorario valor={horario} onChange={setHorario} />
       </section>
@@ -227,7 +262,7 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
       <button className="btn-acento" onClick={guardar}>Guardar perfil</button>
 
-      <section className="neu rounded-2xl p-4 grid gap-2">
+      <section data-ayuda="perfil-servicios" className="neu rounded-2xl p-4 grid gap-2">
         <h3 className="titulo">✂️ Mis servicios</h3>
         <p className="text-xs text-base-500">Importa los cortes del catálogo de la barbería y marca tus ⭐ best sellers (se destacan en tu ficha).</p>
         {datos.servicios.map((s) => {
