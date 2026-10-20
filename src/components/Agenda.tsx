@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Play, UserPlus, X } from 'lucide-react';
 import { msg, notificar, subirImagen, supabase, urlComprobante } from '@/lib/supabase';
 import { hoyLima, sumarDias } from '@/lib/agenda';
+import { consultarDni } from '@/lib/dni';
 import type { Barberia, Barbero, Cita, Servicio } from '@/lib/tipos';
 import { ESTADOS_CITA, soles } from '@/lib/tipos';
 import { Aviso, BotonAccion, CampoImagen, Esqueleto, Hoja, Insignia } from './ui';
@@ -295,8 +296,17 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
 
   async function registrarSinCita() {
     setError(''); setRegistrando(true);
+    // Sin nombre escrito, se toma del DNI (RENIEC) antes de registrar.
+    let nom = nombre.trim();
+    if (nom.length < 2 && tipo === 'DNI') {
+      const r = await consultarDni(dni);
+      if (r.error) { setRegistrando(false); return setError(r.error); }
+      nom = r.nombre!;
+      setNombre(nom);
+    }
+    if (nom.length < 2) { setRegistrando(false); return setError('Escribe el nombre del cliente'); }
     const { error } = await supabase.rpc('barbero_registrar_cliente', {
-      p_dni: dni, p_tipo: tipo, p_nombre: nombre.trim(), p_telefono: telefono.trim(),
+      p_dni: dni, p_tipo: tipo, p_nombre: nom, p_telefono: telefono.trim(),
     });
     setRegistrando(false);
     if (error) return setError(msg(error));
@@ -345,12 +355,10 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
 
   async function buscarDni() {
     setError(''); setBuscando(true);
-    const token = (await supabase.auth.getSession()).data.session?.access_token;
-    const r = await fetch(`/api/dni/${dni}`, { headers: { Authorization: `Bearer ${token}` } }).then((x) => x.json()).catch(() => null);
+    const r = await consultarDni(dni);
     setBuscando(false);
-    if (!r || r.error) return setError(r?.error || 'No se pudo consultar. Escribe el nombre a mano.');
-    if (!r.encontrado) return setError('DNI no encontrado. Escribe el nombre a mano.');
-    setNombre(`${r.nombres} ${r.apellidos}`.trim());
+    if (r.error) return setError(r.error);
+    setNombre(r.nombre!);
   }
 
   async function enviar(e: React.FormEvent<HTMLFormElement>) {
@@ -443,7 +451,7 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
             <p className="text-sm font-semibold text-emerald-500">✅ Cliente registrado. Puede vincular su cuenta entrando a la web con Google.</p>
           ) : (
             <button type="button" className="btn w-fit" onClick={registrarSinCita}
-              disabled={registrando || dni.length < (tipo === 'DNI' ? 8 : 6) || nombre.trim().length < 2}>
+              disabled={registrando || dni.length < (tipo === 'DNI' ? 8 : 6)}>
               {registrando ? 'Registrando…' : '👤 Registrar cliente sin cita'}
             </button>
           )}
