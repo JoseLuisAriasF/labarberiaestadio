@@ -473,7 +473,7 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
           {existente ? (
             <p className="text-sm font-semibold text-emerald-500">✅ Ya está registrado{existente.nombre ? `: ${existente.nombre}` : ''}. No hace falta registrarlo otra vez.</p>
           ) : registrado ? (
-            <p className="text-sm font-semibold text-emerald-500">✅ Cliente registrado. Puede vincular su cuenta entrando a la web con Google.</p>
+            <p className="text-sm font-semibold text-emerald-500">✅ Cliente registrado y verificado 100%, porque vino al local.</p>
           ) : (
             <button type="button" className="btn w-fit" onClick={registrarSinCita}
               disabled={registrando || dni.length < (tipo === 'DNI' ? 8 : 6)}>

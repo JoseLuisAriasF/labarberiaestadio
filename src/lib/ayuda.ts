@@ -106,7 +106,8 @@ export const AYUDA: Record<string, AyudaVista> = {
         'Escribe 8 dígitos y pulsa Buscar.',
         'Si existe: "Verificar 100% por DNI" le da confianza para reservar sin adelanto.',
         'Si no existe: aparece "Registrar cliente". El nombre se llena desde el DNI. Pon su celular si lo tienes.',
-        'Después, el cliente entra a la web con Google y confirma su DNI y celular para vincular su cuenta.',
+        'Quien se registra en el local queda verificado 100% automáticamente, porque vino en persona.',
+        'Después, el cliente entra a la web con Google y confirma su DNI para vincular su cuenta.',
       ] },
       { titulo: 'Lista', items: [
         'El buscador filtra por nombre o documento.',

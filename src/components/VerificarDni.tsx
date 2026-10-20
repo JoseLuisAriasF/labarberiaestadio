@@ -41,7 +41,7 @@ export default function VerificarDni() {
     setGuardando(false);
     if (error) return setAviso({ t: 'error', m: msg(error) });
     setCliente(data as { nombre: string | null; dni: string; estado_verificacion: string });
-    setAviso({ t: 'ok', m: 'Cliente registrado. Pídele que entre a la web con Google y confirme su DNI y celular para vincular su cuenta.' });
+    setAviso({ t: 'ok', m: 'Cliente registrado y verificado 100%, porque vino al local. Para vincular su cuenta, pídele que entre a la web con Google y confirme su DNI.' });
   }
   async function verificar() {
     const { error } = await supabase.rpc('verificar_cliente_dni', { p_dni: dni });
