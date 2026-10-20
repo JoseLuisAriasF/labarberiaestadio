@@ -31,10 +31,22 @@ const enlaces = [
     <div class="ml-auto flex items-center gap-2">
       <div class="hidden sm:block"><ThemeToggle /></div>
       {!privado && (
-        <a href="/perfil" data-tenant data-guia="perfil" class="btn !px-3" aria-label="Mi perfil">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="size-4"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-          <span class="hidden sm:inline">Mi perfil</span>
-        </a>
+        <div data-cuenta data-guia="perfil" class="relative">
+          <a href="/acceso" data-tenant data-login class="btn !px-3" aria-label="Entrar a mi cuenta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="size-4"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            <span>Entrar</span>
+          </a>
+          <button type="button" data-avatar hidden aria-haspopup="menu" aria-expanded="false" aria-label="Mi cuenta"
+            class="grid size-10 place-items-center overflow-hidden rounded-full bg-acento-500 text-sm font-bold text-black ring-2 ring-acento-500/50 transition hover:ring-acento-500">
+            <img data-avatar-img hidden alt="" referrerpolicy="no-referrer" class="size-full object-cover" />
+            <span data-iniciales></span>
+          </button>
+          <div data-menu-cuenta hidden role="menu" class="neu absolute right-0 z-50 mt-2 grid w-56 gap-1 rounded-2xl p-2">
+            <p data-nombre class="truncate px-3 py-2 text-sm font-semibold"></p>
+            <a href="/perfil" data-tenant role="menuitem" class="rounded-xl px-3 py-2 text-sm hover:bg-acento-500/10">Mi perfil</a>
+            <button type="button" data-salir-cuenta role="menuitem" class="rounded-xl px-3 py-2 text-left text-sm text-red-500 hover:bg-red-500/10">Cerrar sesión</button>
+          </div>
+        </div>
       )}
       {privado && <button data-salir class="btn !px-3">Salir</button>}
       {!privado && (
@@ -54,6 +66,12 @@ const enlaces = [
             {e.texto}
           </a>
         ))}
+        <div data-cuenta-movil hidden class="grid gap-1.5 pt-2 mt-1 border-t border-base-300/40 dark:border-base-700/40">
+          <p data-nombre-movil class="px-1 text-sm font-semibold"></p>
+          <a href="/perfil" data-tenant class="neu-sm neu-press rounded-xl px-3 py-2.5 text-sm">Mi perfil</a>
+          <button type="button" data-salir-cuenta class="neu-sm neu-press rounded-xl px-3 py-2.5 text-left text-sm text-red-500">Cerrar sesión</button>
+        </div>
+        <a href="/acceso" data-tenant data-login-movil class="neu-sm neu-press rounded-xl px-3 py-2.5 text-sm flex items-center gap-3">Entrar o crear cuenta</a>
         <div class="flex items-center justify-between pt-2 mt-1 border-t border-base-300/40 dark:border-base-700/40">
           <ThemeToggle />
           <a href="/login" class="text-xs text-base-500 hover:text-acento-500">Acceso staff</a>
@@ -80,4 +98,57 @@ const enlaces = [
     await supabase.auth.signOut();
     location.href = '/login';
   });
+
+  const cuenta = document.querySelector<HTMLElement>('[data-cuenta]');
+  if (cuenta) {
+    const login = cuenta.querySelector<HTMLElement>('[data-login]')!;
+    const avatar = cuenta.querySelector<HTMLButtonElement>('[data-avatar]')!;
+    const avatarImg = cuenta.querySelector<HTMLImageElement>('[data-avatar-img]')!;
+    const iniciales = cuenta.querySelector<HTMLElement>('[data-iniciales]')!;
+    const menu = cuenta.querySelector<HTMLElement>('[data-menu-cuenta]')!;
+    const nombreMenu = cuenta.querySelector<HTMLElement>('[data-nombre]')!;
+    const movilCuenta = document.querySelector<HTMLElement>('[data-cuenta-movil]')!;
+    const movilLogin = document.querySelector<HTMLElement>('[data-login-movil]')!;
+    const nombreMovil = document.querySelector<HTMLElement>('[data-nombre-movil]')!;
+
+    const sigla = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
+
+    async function pintar(user: { id: string; user_metadata?: Record<string, unknown> } | null) {
+      if (!user) {
+        login.hidden = false; avatar.hidden = true; menu.hidden = true;
+        movilCuenta.hidden = true; movilLogin.hidden = false;
+        return;
+      }
+      const { data: c } = await supabase.from('clientes').select('nombre').maybeSingle();
+      const meta = user.user_metadata ?? {};
+      const nombre = c?.nombre || String(meta.nombre ?? meta.full_name ?? meta.name ?? '') || 'Mi cuenta';
+      const foto = typeof meta.avatar_url === 'string' ? meta.avatar_url : '';
+      iniciales.textContent = sigla(nombre);
+      iniciales.hidden = !!foto;
+      avatarImg.hidden = !foto;
+      if (foto) avatarImg.src = foto;
+      avatar.setAttribute('aria-label', `Mi cuenta: ${nombre}`);
+      nombreMenu.textContent = nombre;
+      nombreMovil.textContent = nombre;
+      login.hidden = true; avatar.hidden = false;
+      movilCuenta.hidden = false; movilLogin.hidden = true;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    await pintar(session?.user ?? null);
+    supabase.auth.onAuthStateChange((_e, s) => { pintar(s?.user ?? null); });
+
+    const abrir = (abierto: boolean) => {
+      menu.hidden = !abierto;
+      avatar.setAttribute('aria-expanded', String(abierto));
+    };
+    avatar.addEventListener('click', (e) => { e.stopPropagation(); abrir(menu.hidden); });
+    document.addEventListener('click', (e) => { if (!cuenta.contains(e.target as Node)) abrir(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') abrir(false); });
+
+    document.querySelectorAll<HTMLElement>('[data-salir-cuenta]').forEach((b) => b.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      location.href = '/';
+    }));
+  }
 </script>
