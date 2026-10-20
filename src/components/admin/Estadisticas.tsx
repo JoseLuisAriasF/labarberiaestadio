@@ -92,12 +92,12 @@ export default function Estadisticas({ datos }: { datos: DatosBarberia }) {
         <input type="month" className="campo !w-auto ml-auto" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} />
       </div>
       {error && <Aviso>{error}</Aviso>}
-      <div className="grid grid-cols-3 gap-2 text-center">
+      <div data-ayuda="est-resumen" className="grid grid-cols-3 gap-2 text-center">
         <div className="panel"><p className="text-lg font-bold">{soles(ingresos)}</p><p className="text-xs text-[var(--texto-suave)]">facturado</p></div>
         <div className="panel"><p className="text-lg font-bold">{citas.length}</p><p className="text-xs text-[var(--texto-suave)]">cortes</p></div>
         <div className="panel"><p className="text-lg font-bold">{soles(citas.length ? ingresos / citas.length : 0)}</p><p className="text-xs text-[var(--texto-suave)]">ticket promedio</p></div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div data-ayuda="est-graficos" className="grid gap-4 sm:grid-cols-2">
         <Barras titulo="Ingresos por día (S/)" filas={porDia} fmt={(v) => soles(v).replace('S/ ', '')} />
         <Barras titulo="Servicios más pedidos" filas={servicios} />
         <Barras titulo="Horas con más cortes" filas={horas} />

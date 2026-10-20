@@ -51,7 +51,7 @@ export default function VerificarDni() {
   }
 
   return (
-    <section className="neu rounded-2xl p-4 grid gap-3">
+    <section data-ayuda="clientes-verificar" className="neu rounded-2xl p-4 grid gap-3">
       <h3 className="titulo">🛡️ Verificar cliente por DNI</h3>
       <form onSubmit={buscar} className="flex gap-2">
         <input className="campo" inputMode="numeric" pattern="[0-9]{8}" maxLength={8} required placeholder="DNI (8 dígitos)" value={dni} onChange={(e) => { setDni(e.target.value.replace(/\D/g, '')); setBuscado(false); setCliente(null); setAviso(null); setNombreReg(''); }} />

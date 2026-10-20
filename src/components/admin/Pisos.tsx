@@ -88,7 +88,7 @@ export default function Pisos({ datos, recargar }: { datos: DatosBarberia; recar
   if (!pisos.length) return <button className="btn-acento" onClick={agregarPiso}><Plus className="size-4" /> Crear piso 1</button>;
 
   return (
-    <div className="grid gap-4">
+    <div data-ayuda="pisos-plano" className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="neu-inset rounded-xl p-1 flex gap-1 overflow-x-auto max-w-full">
           {pisos.map((p) => (

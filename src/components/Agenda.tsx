@@ -130,13 +130,13 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
   return (
     <div className="grid gap-4">
       {pendientes.length > 0 && (
-        <section className="neu rounded-2xl p-4 ring-2 ring-amber-500/50">
+        <section data-ayuda="agenda-pendientes" className="neu rounded-2xl p-4 ring-2 ring-amber-500/50">
           <h3 className="titulo text-sm mb-2">🧾 Citas por validar ({pendientes.length})</h3>
           <ul className="grid gap-2">{pendientes.map((c) => <Fila key={c.id} c={c} conFecha />)}</ul>
         </section>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-ayuda="agenda-fecha" className="flex flex-wrap items-center gap-2">
         <button className="btn !p-2" aria-label="Día anterior" onClick={() => setFecha(sumarDias(fecha, -1))}><ChevronLeft className="size-4" /></button>
         <input type="date" className="campo !w-auto" value={fecha} onChange={(e) => e.target.value && setFecha(e.target.value)} />
         <button className="btn !p-2" aria-label="Día siguiente" onClick={() => setFecha(sumarDias(fecha, 1))}><ChevronRight className="size-4" /></button>
@@ -150,10 +150,10 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
         <button className="btn !py-2 text-xs ml-auto" onClick={() => setVerTodo((v) => !v)} aria-pressed={verTodo}>
           {verTodo ? 'Ver solo activas' : 'Ver todas'}
         </button>
-        <button className="btn-acento" onClick={() => setWalkin(true)}><UserPlus className="size-4" /> Walk-in</button>
+        <button data-ayuda="agenda-walkin" className="btn-acento" onClick={() => setWalkin(true)}><UserPlus className="size-4" /> Walk-in</button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center">
+      <div data-ayuda="agenda-resumen" className="grid grid-cols-3 gap-2 text-center">
         <div className={`neu-inset rounded-xl p-2 ${pendientes.length > 0 ? 'ring-1 ring-amber-500/60' : ''}`}>
           <p className="text-base font-semibold tabular-nums sm:text-xl">{pendientes.length > 0 ? pendientes.length : vivas.length}</p>
           <p className="text-[11px] text-base-500">{pendientes.length > 0 ? 'por validar' : 'activas'}</p>
@@ -162,7 +162,7 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
         <div className="neu-inset rounded-xl p-2"><p className="text-base font-semibold tabular-nums sm:text-xl">{soles(cobrado)}</p><p className="text-[11px] text-base-500">cobrado</p></div>
       </div>
       {error && <Aviso>{error}</Aviso>}
-      <ul className="grid gap-2">
+      <ul data-ayuda="agenda-lista" className="grid gap-2">
         {cargando && [0, 1, 2].map((i) => <Esqueleto key={i} className="h-16" />)}
         {!cargando && visibles.map((c) => <Fila key={c.id} c={c} />)}
         {!cargando && visibles.length === 0 && (

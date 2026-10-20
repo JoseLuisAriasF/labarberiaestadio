@@ -1,4 +1,5 @@
 // Guía interactiva (driver.js, como en Papichulo). Cada paso apunta a un elemento con data-guia.
+import { AYUDA, EL_AYUDA } from './ayuda';
 type Rol = 'cliente' | 'admin' | 'barbero';
 type Paso = { el: string; titulo: string; texto: string };
 
@@ -71,6 +72,37 @@ export async function iniciarGuia(rol: Rol) {
       };
     });
   if (steps.length === 0) return;
+  driver({
+    steps, showProgress: true, allowClose: true, smoothScroll: true, stagePadding: 6, stageRadius: 14,
+    nextBtnText: 'Siguiente', prevBtnText: 'Atrás', doneBtnText: 'Listo', progressText: 'Paso {{current}} de {{total}}',
+    popoverClass: 'guia-tour',
+  }).drive();
+}
+
+const bloque = (secs: { titulo: string; items: string[] }[]) =>
+  secs.map((s) => `<b>${s.titulo}</b><ul style="margin:.3em 0 .6em;padding-left:1.1em;list-style:disc">${s.items.map((i) => `<li>${i}</li>`).join('')}</ul>`).join('');
+
+/** Ayuda guiada de la vista abierta: resalta cada bloque de la pantalla con driver.js y explica qué hace. */
+export async function iniciarAyudaVista(vista: string) {
+  const ayuda = AYUDA[vista];
+  if (!ayuda) return;
+  await cargarDriver();
+  const driver = (window as unknown as DriverGlobal).driver!.js!.driver;
+  const steps: { element?: string; popover: { title: string; description: string } }[] = [];
+  let pendientes: typeof ayuda.secciones = [];
+  for (const sec of ayuda.secciones) {
+    const el = EL_AYUDA[vista]?.[sec.titulo];
+    if (el && document.querySelector(el)) {
+      steps.push({ element: el, popover: { title: sec.titulo, description: bloque([...pendientes, sec]) } });
+      pendientes = [];
+    } else {
+      pendientes.push(sec);
+    }
+  }
+  if (pendientes.length) {
+    if (steps.length) steps[steps.length - 1].popover.description += bloque(pendientes);
+    else steps.push({ element: `[data-vista="${vista}"]`, popover: { title: ayuda.titulo, description: `${ayuda.resumen}${bloque(pendientes)}` } });
+  }
   driver({
     steps, showProgress: true, allowClose: true, smoothScroll: true, stagePadding: 6, stageRadius: 14,
     nextBtnText: 'Siguiente', prevBtnText: 'Atrás', doneBtnText: 'Listo', progressText: 'Paso {{current}} de {{total}}',

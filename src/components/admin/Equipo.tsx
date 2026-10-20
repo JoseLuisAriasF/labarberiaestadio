@@ -112,7 +112,7 @@ export default function Equipo({ datos, recargar, esDueno = true }: { datos: Dat
 
   return (
     <section className="grid gap-3">
-      <div className="flex items-center justify-between">
+      <div data-ayuda="equipo-cabecera" className="flex items-center justify-between">
         <h2 className="titulo text-lg">Barberos</h2>
         {esDueno && <button className="btn-acento" onClick={() => setNuevo(true)}><Plus className="size-4" /> Nuevo barbero</button>}
       </div>
@@ -123,7 +123,7 @@ export default function Equipo({ datos, recargar, esDueno = true }: { datos: Dat
           Deberá cambiarla en su primer ingreso.
         </Aviso>
       )}
-      <ul className="grid gap-2">
+      <ul data-ayuda="equipo-lista" className="grid gap-2">
         {barberos.map((b) => (
           <li key={b.id} className={`neu-sm rounded-xl p-3 flex flex-wrap items-center gap-3 ${b.activo ? '' : 'opacity-50'}`}>
             <label className="relative cursor-pointer shrink-0" title="Cambiar foto">

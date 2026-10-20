@@ -29,7 +29,7 @@ export default function Festivos({ datos, recargar }: { datos: NonNullable<Retur
 
   return (
     <div className="grid gap-5">
-      <section className="grid gap-2">
+      <section data-ayuda="festivos" className="grid gap-2">
         <h3 className="titulo">🎉 Efectos por días festivos</h3>
         <p className="text-sm text-base-500">
           Decora tu portada y el local en 3D en Halloween, Navidad, Fiestas Patrias y más.

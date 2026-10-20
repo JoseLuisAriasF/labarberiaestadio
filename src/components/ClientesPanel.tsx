@@ -81,7 +81,7 @@ function DatosCliente({ clienteId, onCambio, onEliminado }: { clienteId: string;
 
   return (
     <div className="grid gap-5">
-      <form onSubmit={guardar} className="grid gap-3" aria-label="Datos del cliente">
+      <form data-ayuda="clientes-datos" onSubmit={guardar} className="grid gap-3" aria-label="Datos del cliente">
         <p className="etiqueta !mb-0">Datos del cliente</p>
         <label><span className="etiqueta">Nombre y apellidos</span>
           <input name="nombre" required minLength={2} maxLength={60} defaultValue={c.nombre ?? ''} className="campo" /></label>
@@ -162,7 +162,7 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
     <div className="grid gap-5">
       <VerificarDni />
       <section className="grid gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-ayuda="clientes-lista" className="flex flex-wrap items-center gap-2">
           <h3 className="titulo">Clientes ({lista.length})</h3>
           <input className="campo ml-auto !w-64" placeholder="Buscar por nombre o documento" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>

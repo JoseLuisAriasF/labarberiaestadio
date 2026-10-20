@@ -248,3 +248,44 @@ export const AYUDA: Record<string, AyudaVista> = {
     ],
   },
 };
+
+// Qué elemento de la vista resalta cada sección de la ayuda (sección sin ancla = se junta con la siguiente).
+export const EL_AYUDA: Record<string, Record<string, string>> = {
+  agenda: {
+    'Arriba': '[data-ayuda="agenda-fecha"]',
+    'Resumen': '[data-ayuda="agenda-resumen"]',
+    'Citas por validar (arriba, en ámbar)': '[data-ayuda="agenda-pendientes"]',
+    'Cada fila de cita': '[data-ayuda="agenda-lista"]',
+    'Walk-in (cliente sin cita)': '[data-ayuda="agenda-walkin"]',
+  },
+  equipo: {
+    'Nuevo barbero (solo el dueño)': '[data-ayuda="equipo-cabecera"]',
+    'Cada barbero': '[data-ayuda="equipo-lista"]',
+  },
+  servicios: { 'Campos': '[data-crud="servicios_cortes"]' },
+  pisos: { 'Sillas': '[data-ayuda="pisos-plano"]' },
+  clientes: {
+    'Verificar por DNI (arriba)': '[data-ayuda="clientes-verificar"]',
+    'Lista': '[data-ayuda="clientes-lista"]',
+    'Ficha del cliente': '[data-ayuda="clientes-datos"]',
+  },
+  lealtad: {
+    'Ámbito del conteo': '[data-ayuda="lealtad-ambito"]',
+    'Metas y premios': '[data-crud="gamificacion_premios"]',
+  },
+  productos: { 'Campos': '[data-crud="productos"]' },
+  finanzas: {
+    'Reporte del mes': '[data-ayuda="fin-reporte"]',
+    'Modelo financiero': '[data-ayuda="fin-modelo"]',
+    'Gastos del mes': '[data-ayuda="fin-gastos"]',
+  },
+  estadisticas: { 'Arriba': '[data-ayuda="est-resumen"]', 'Gráficos': '[data-ayuda="est-graficos"]' },
+  mijornada: { 'Estado': '[data-guia="llegada"]', 'Cola': '[data-guia="cola"]' },
+  local: {
+    'Datos del negocio': '[data-ayuda="local-datos"]',
+    'Ubicación': '[data-ayuda="local-ubicacion"]',
+    'Horario y cobros': '[data-ayuda="local-horario"]',
+    'QR para reservas': '[data-ayuda="local-qr"]',
+  },
+  festivos: { 'Qué hacer': '[data-ayuda="festivos"]' },
+};
