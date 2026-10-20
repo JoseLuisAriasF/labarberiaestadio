@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { emailCliente, supabase, suscribirPush } from './supabase';
+import { emailCliente, msg, supabase, suscribirPush } from './supabase';
 import type { Cliente } from './tipos';
 
 /** Sesión del cliente (Google) + su ficha con DNI, si ya la creó. */
@@ -52,7 +52,8 @@ export async function crearCuentaCliente(nombre: string, celular: string, clave:
   if (r.error) return { error: { message: r.error } as const };
   const si = await supabase.auth.signInWithPassword({ email: emailCliente(celular), password: clave });
   if (si.error) return si;
-  await supabase.rpc('registrar_cliente_celular', { p_nombre: nombre, p_telefono: celular });
+  const ficha = await supabase.rpc('registrar_cliente_celular', { p_nombre: nombre, p_telefono: celular });
+  if (ficha.error) return { error: { message: msg(ficha.error) } as const };
   suscribirPush();
   return si;
 }

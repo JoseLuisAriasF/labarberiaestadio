@@ -54,6 +54,15 @@ export default function Perfil() {
   );
   if (!cliente) return <div className="max-w-sm mx-auto neu rounded-3xl p-6"><h1 className="titulo text-xl mb-4">Completa tu registro</h1><RegistroDni email={user.email} onListo={setCliente} /></div>;
 
+  async function guardarDni(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    setError('');
+    const { data, error } = await supabase.rpc('cliente_completar_dni', { p_dni: String(f.get('dni')).trim() });
+    if (error) return setError(msg(error));
+    setCliente(data as any);
+  }
+
   async function guardarEmail(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -96,6 +105,15 @@ export default function Perfil() {
       </section>
       {cliente.estado_verificacion === 'UNVERIFIED' && (
         <Aviso tipo="info">Para quedar 100% verificado: paga tu primera reserva por Yape/Plin, o pide en el local que validen tu DNI. Así tus próximas citas se confirman al instante.</Aviso>
+      )}
+      {!cliente.dni && (
+        <form onSubmit={guardarDni} className="panel grid gap-2">
+          <p className="text-sm font-semibold">🪪 Añade tu DNI (opcional) para verificar tu cuenta</p>
+          <label className="flex gap-2">
+            <input name="dni" required inputMode="numeric" pattern="[0-9]{8}" maxLength={8} placeholder="8 dígitos" className="campo flex-1" />
+            <button className="btn-acento">Guardar</button>
+          </label>
+        </form>
       )}
       {!cliente.email && (
         <form onSubmit={guardarEmail} className="panel grid gap-2">
