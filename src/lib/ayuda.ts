@@ -270,6 +270,14 @@ export const AYUDA: Record<string, AyudaVista> = {
         'Libre, atendiendo cita, atendiendo sin cita o descanso: un toque para cambiar.',
         'Tiempo estimado: minutos del corte actual. Los clientes ven cuándo quedas libre.',
       ] },
+      { titulo: 'Hoy y mañana', items: [
+        'Tus citas de hoy y de mañana, con hora, cliente, corte y estado.',
+        'Toca una cita para ver su detalle, escribirle por WhatsApp o gestionarla en Citas.',
+      ] },
+      { titulo: 'Nuevo corte', items: [
+        'El botón central Corte sirve para un cliente que llega sin cita.',
+        'Elige si da su DNI o es anónimo, escribe su nombre, y elige el corte: arriba salen los que más haces.',
+      ] },
     ],
   },
   perfil: {
@@ -334,6 +342,6 @@ export const EL_AYUDA: Record<string, Record<string, string>> = {
     'QR para reservas': '[data-ayuda="local-qr"]',
   },
   festivos: { 'Qué hacer': '[data-ayuda="festivos"]', 'Opciones': '[data-ayuda="festivos-opciones"]', 'Vista previa': '[data-ayuda="festivos-previa"]' },
-  jornada: { 'Llegada': '[data-guia="llegada"]', 'Cola': '[data-guia="cola"]', 'Estado': '[data-guia="estado"]' },
+  jornada: { 'Llegada': '[data-guia="llegada"]', 'Cola': '[data-guia="cola"]', 'Estado': '[data-guia="estado"]', 'Hoy y mañana': '[data-ayuda="inicio-hoy"]', 'Nuevo corte': '[data-guia="nuevo-corte"]' },
   perfil: { 'Foto y datos': '[data-ayuda="perfil-datos"]', 'Horario': '[data-ayuda="perfil-horario"]', 'Servicios': '[data-ayuda="perfil-servicios"]' },
 };

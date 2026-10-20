@@ -150,7 +150,7 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
         <button className="btn !py-2 text-xs ml-auto" onClick={() => setVerTodo((v) => !v)} aria-pressed={verTodo}>
           {verTodo ? 'Ver solo activas' : 'Ver todas'}
         </button>
-        <button data-ayuda="agenda-walkin" className="btn-acento" onClick={() => setWalkin(true)}><UserPlus className="size-4" /> Walk-in</button>
+        <button data-ayuda="agenda-walkin" className="btn-acento" onClick={() => setWalkin(true)}><UserPlus className="size-4" /> Nuevo corte</button>
       </div>
 
       <div data-ayuda="agenda-resumen" className="grid grid-cols-3 gap-2 text-center">
@@ -195,7 +195,7 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
         {completando && <Completar cita={completando} barberiaId={barberia.id} onListo={() => { setCompletando(null); cargar(); }} />}
       </Hoja>
 
-      <Hoja abierta={walkin} onClose={() => setWalkin(false)} titulo="Cliente sin cita (walk-in)">
+      <Hoja abierta={walkin} onClose={() => setWalkin(false)} titulo="Nuevo corte (sin cita)">
         <Walkin barberiaId={barberia.id} barberos={soloBarbero ? barberos.filter((b) => b.id === soloBarbero) : barberos.filter((b) => b.activo)} servicios={servicios}
           onListo={() => { setWalkin(false); cargar(); }} />
       </Hoja>
@@ -276,7 +276,7 @@ function Completar({ cita, barberiaId, onListo }: { cita: Cita; barberiaId: stri
   );
 }
 
-function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: string; barberos: Barbero[]; servicios: Servicio[]; onListo: () => void }) {
+export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: string; barberos: Barbero[]; servicios: Servicio[]; onListo: () => void }) {
   // Lo que más hace cada barbero sale primero: se busca más rápido en la lista.
   const [barberoId, setBarberoId] = useState(barberos[0]?.id ?? '');
   const [servicioId, setServicioId] = useState('');
@@ -469,7 +469,7 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
           ) : (
             <button type="button" className="btn w-fit" onClick={registrarSinCita}
               disabled={registrando || dni.length < (tipo === 'DNI' ? 8 : 6)}>
-              {registrando ? 'Registrando…' : '👤 Registrar cliente sin cita'}
+              {registrando ? 'Registrando…' : '👤 Guardar solo el cliente'}
             </button>
           )}
         </>
@@ -480,7 +480,7 @@ function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: stri
       <label><span className="etiqueta">Servicio</span>
         <select value={servicioId} onChange={(e) => setServicioId(e.target.value)} className="campo">{ordenServicios.map((s) => <option key={s.id} value={s.id}>{conteo[s.id] ? `⭐ ${s.nombre}` : s.nombre} · {soles(s.precio_base)}{conteo[s.id] ? ` · ${conteo[s.id]} hechos` : ''}</option>)}</select></label>
       {error && <Aviso>{error}</Aviso>}
-      <button disabled={enviando || barberos.length === 0} className="btn-acento">{enviando ? 'Agregando…' : 'Agregar a la cola'}</button>
+      <button disabled={enviando || barberos.length === 0} className="btn-acento">{enviando ? 'Agregando…' : 'Agregar a la cola de hoy'}</button>
     </form>
   );
 }
