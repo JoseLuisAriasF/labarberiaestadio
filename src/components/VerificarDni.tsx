@@ -1,77 +1,61 @@
 import { useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
-import { consultarDni } from '@/lib/dni';
 import { Aviso, Insignia } from './ui';
 
-/** Método B anti-trolls: el staff marca 100% verificado a un cliente conocido por su DNI. */
+type Cli = { id: string; nombre: string | null; dni: string | null; telefono: string | null; estado_verificacion: string };
+
+/** Verificación presencial: el staff busca al cliente por celular, nombre o DNI y lo marca 100% verificado. */
 export default function VerificarDni() {
-  const [dni, setDni] = useState('');
-  const [cliente, setCliente] = useState<{ nombre: string | null; dni: string; estado_verificacion: string } | null>(null);
+  const [q, setQ] = useState('');
+  const [resultados, setResultados] = useState<Cli[] | null>(null);
+  const [cliente, setCliente] = useState<Cli | null>(null);
   const [aviso, setAviso] = useState<{ t: 'ok' | 'error' | 'info'; m: string } | null>(null);
-  const [buscado, setBuscado] = useState(false);
-  const [nombreReg, setNombreReg] = useState('');
-  const [guardando, setGuardando] = useState(false);
 
-  async function buscar(e: React.FormEvent) {
-    e.preventDefault();
-    setAviso(null); setCliente(null); setBuscado(false);
-    const { data, error } = await supabase.rpc('buscar_cliente_dni', { p_dni: dni });
-    setBuscado(true);
+  async function buscar(texto: string) {
+    setQ(texto); setCliente(null); setAviso(null);
+    if (texto.trim().length < 2) return setResultados(null);
+    const { data, error } = await supabase.rpc('buscar_clientes_staff', { p_q: texto.trim() });
     if (error) return setAviso({ t: 'error', m: msg(error) });
-    if (!data?.length) {
-      setAviso({ t: 'info', m: 'Cliente nuevo. Revisa el nombre y regístralo: después solo tendrá que entrar a la web con Google y confirmar su DNI.' });
-      // Autocompleta nombre y apellidos desde el DNI; si no hay dato, se escribe a mano.
-      const r = await consultarDni(dni);
-      if (r.nombre) setNombreReg(r.nombre);
-      else if (r.error) setAviso({ t: 'info', m: r.error });
-      return;
-    }
-    setCliente(data[0]);
+    setResultados((data ?? []) as Cli[]);
   }
 
-  /** Alta rápida: el cliente queda con cartilla lista, sin cuenta hasta que entre a la web. */
-  async function registrarRapido(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    setGuardando(true); setAviso(null);
-    const { data, error } = await supabase.rpc('barbero_registrar_cliente', {
-      p_dni: dni, p_tipo: 'DNI', p_nombre: String(f.get('nombre')).trim(), p_telefono: String(f.get('telefono')).trim(),
-    });
-    setGuardando(false);
-    if (error) return setAviso({ t: 'error', m: msg(error) });
-    setCliente(data as { nombre: string | null; dni: string; estado_verificacion: string });
-    setAviso({ t: 'ok', m: 'Cliente registrado y verificado 100%, porque vino al local. Para vincular su cuenta, pídele que entre a la web con Google y confirme su DNI.' });
-  }
   async function verificar() {
-    const { error } = await supabase.rpc('verificar_cliente_dni', { p_dni: dni });
+    if (!cliente) return;
+    const { error } = await supabase.rpc('verificar_cliente_id', { p_cliente: cliente.id });
     if (error) return setAviso({ t: 'error', m: msg(error) });
-    setCliente((c) => c && { ...c, estado_verificacion: 'VERIFIED_100' });
+    setCliente({ ...cliente, estado_verificacion: 'VERIFIED_100' });
     setAviso({ t: 'ok', m: 'Cliente verificado 100%. Ya puede reservar sin adelanto.' });
   }
 
   return (
     <section data-ayuda="clientes-verificar" className="neu rounded-2xl p-4 grid gap-3">
-      <h3 className="titulo">🛡️ Verificar cliente por DNI</h3>
-      <form onSubmit={buscar} className="flex gap-2">
-        <input className="campo" inputMode="numeric" pattern="[0-9]{8}" maxLength={8} required placeholder="DNI (8 dígitos)" value={dni} onChange={(e) => { setDni(e.target.value.replace(/\D/g, '')); setBuscado(false); setCliente(null); setAviso(null); setNombreReg(''); }} />
-        <button className="btn">Buscar</button>
-      </form>
-      {buscado && !cliente && (
-        <form onSubmit={registrarRapido} className="grid gap-3 neu-inset rounded-xl p-3" aria-label="Registro rápido de cliente">
-          <p className="text-sm font-semibold">Nuevo cliente · DNI {dni}</p>
-          <label><span className="etiqueta">Nombre y apellidos</span>
-            <input name="nombre" value={nombreReg} onChange={(e) => setNombreReg(e.target.value)} required minLength={2} maxLength={60} className="campo" autoFocus /></label>
-          <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
-            <input name="telefono" type="tel" inputMode="tel" pattern="\+?[0-9 ]{6,15}" className="campo" placeholder="9xx xxx xxx" /></label>
-          <button disabled={guardando} className="btn-acento">{guardando ? 'Registrando…' : 'Registrar cliente'}</button>
-        </form>
+      <h3 className="titulo">🛡️ Verificar cliente</h3>
+      <input className="campo" value={q} onChange={(e) => buscar(e.target.value)} autoComplete="off"
+        placeholder="Celular, nombre o DNI" aria-label="Buscar cliente para verificar" />
+      {resultados && resultados.length > 0 && !cliente && (
+        <ul className="grid gap-1.5">
+          {resultados.map((c) => (
+            <li key={c.id}>
+              <button type="button" onClick={() => { setCliente(c); setResultados(null); }} className="panel w-full text-left">
+                <b className="text-sm">{c.nombre ?? 'Sin nombre'}</b>
+                <span className="block text-xs text-[var(--texto-suave)]">{c.telefono ?? 'Sin celular'}{c.dni ? ` · DNI ${c.dni}` : ''}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {resultados && resultados.length === 0 && q.trim().length >= 2 && (
+        <Aviso tipo="info">No hay ningún cliente con ese dato. Regístralo en "Nuevo corte" con su celular.</Aviso>
       )}
       {cliente && (
         <div className="flex flex-wrap items-center gap-3 neu-inset rounded-xl p-3">
-          <span className="flex-1 text-sm"><b>{cliente.nombre}</b> · DNI {cliente.dni}</span>
+          <span className="flex-1 text-sm">
+            <b>{cliente.nombre ?? 'Sin nombre'}</b>
+            <span className="block text-xs text-[var(--texto-suave)]">{cliente.telefono ?? 'Sin celular'}{cliente.dni ? ` · DNI ${cliente.dni}` : ''}</span>
+          </span>
           <Insignia verificado={cliente.estado_verificacion === 'VERIFIED_100'} />
-          {cliente.estado_verificacion !== 'VERIFIED_100' && <button className="btn-acento !py-1.5 text-xs" onClick={verificar}><ShieldCheck className="size-4" /> Verificar 100% por DNI</button>}
+          {cliente.estado_verificacion !== 'VERIFIED_100' && <button className="btn-acento !py-1.5 text-xs" onClick={verificar}><ShieldCheck className="size-4" /> Verificar 100%</button>}
         </div>
       )}
       {aviso && <Aviso tipo={aviso.t}>{aviso.m}</Aviso>}

@@ -4,7 +4,7 @@ import { Aviso, Hoja } from './ui';
 import VerificarDni from './VerificarDni';
 
 export interface Tarjeta { barbero_id: string | null; barbero_nombre: string | null; cortes: number; meta: number; faltan: number; premio: string }
-interface Resumen { cliente_id: string; nombre: string | null; documento: string; documento_tipo: string; cortes: number; ultima_visita: string }
+interface Resumen { cliente_id: string; nombre: string | null; documento: string; documento_tipo: string; telefono: string | null; cortes: number; ultima_visita: string }
 interface Historial { id: string; fecha_hora: string; estado: string; servicios_cortes: { nombre: string } | null; barberos: { nombre: string } | null }
 
 const fecha = (iso: string, extra: Intl.DateTimeFormatOptions = {}) =>
@@ -168,7 +168,8 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
 
   const filtrada = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return s ? lista.filter((c) => (c.nombre ?? '').toLowerCase().includes(s) || c.documento.includes(s)) : lista;
+    const digitos = s.replace(/\D/g, '');
+    return s ? lista.filter((c) => (c.nombre ?? '').toLowerCase().includes(s) || (!!c.documento && c.documento.includes(s)) || (digitos.length > 0 && (c.telefono ?? '').replace(/\D/g, '').includes(digitos))) : lista;
   }, [q, lista]);
 
   return (
@@ -177,7 +178,7 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
       <section className="grid gap-3">
         <div data-ayuda="clientes-lista" className="flex flex-wrap items-center gap-2">
           <h3 className="titulo">Clientes ({lista.length})</h3>
-          <input className="campo ml-auto !w-64" placeholder="Buscar por nombre o documento" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="campo ml-auto !w-64" placeholder="Buscar por nombre, celular o DNI" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         {error && <Aviso>{error}</Aviso>}
         <ul className="grid gap-2">
@@ -186,7 +187,7 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
               <button onClick={() => abrir(c)} className="panel flex w-full items-center gap-3 text-left hover:border-acento-500/60">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{c.nombre || 'Sin nombre'}</span>
-                  <span className="block text-xs text-[var(--texto-suave)]">{c.documento_tipo} {c.documento} · última visita {fecha(c.ultima_visita)}</span>
+                  <span className="block text-xs text-[var(--texto-suave)]">{c.telefono ?? 'Sin celular'}{c.documento ? ` · ${c.documento_tipo} ${c.documento}` : ''} · última visita {fecha(c.ultima_visita)}</span>
                 </span>
                 <span className="chip">{c.cortes} {c.cortes === 1 ? 'corte' : 'cortes'}</span>
               </button>
@@ -199,7 +200,7 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
       <Hoja abierta={!!abierto} onClose={() => setAbierto(null)} titulo={abierto?.nombre || 'Cliente'}>
         {abierto && (
           <div className="grid gap-5">
-            <p className="text-sm text-[var(--texto-suave)]">{abierto.documento_tipo} {abierto.documento} · {abierto.cortes} cortes completados</p>
+            <p className="text-sm text-[var(--texto-suave)]">{abierto.telefono ?? 'Sin celular'}{abierto.documento ? ` · ${abierto.documento_tipo} ${abierto.documento}` : ''} · {abierto.cortes} cortes completados</p>
             <DatosCliente key={abierto.cliente_id} clienteId={abierto.cliente_id}
               onCambio={() => setVersion((v) => v + 1)}
               onEliminado={() => { setAbierto(null); setVersion((v) => v + 1); }} />
