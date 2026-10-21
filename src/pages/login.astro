@@ -26,10 +26,12 @@ import Base from '@/layouts/Base.astro';
   async function destino() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    if (user.email?.endsWith('@cliente.labarberiaestadio.pages.dev')) return location.replace('/perfil');
     const { data: b } = await supabase.from('barberias').select('id').eq('owner_id', user.id).maybeSingle();
     if (b) return location.replace('/admin');
     const { data: br } = await supabase.from('barberos').select('id').eq('usuario_id', user.id).maybeSingle();
     if (br) return location.replace('/barber');
+    location.replace('/perfil');
   }
   destino();
 

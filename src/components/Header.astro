@@ -96,7 +96,7 @@ const enlaces = [
   });
   document.querySelector('[data-salir]')?.addEventListener('click', async () => {
     await supabase.auth.signOut();
-    location.href = '/login';
+    location.href = location.pathname.startsWith('/perfil') ? '/' : '/login';
   });
 
   const cuenta = document.querySelector<HTMLElement>('[data-cuenta]');
