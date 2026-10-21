@@ -209,6 +209,8 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 Prefiero reservar solo con mi nombre y celular
               </button>
             </>
+          ) : user && !cliente && !anonimo && user.email?.endsWith('@cliente.labarberiaestadio.pages.dev') ? (
+            <Aviso tipo="info">Tu cuenta aún no tiene su ficha de cliente. Si tu celular ya está en otra cuenta, pide al local que lo libere y vuelve a intentarlo. El DNI y el correo los puedes añadir después desde tu perfil.</Aviso>
           ) : user && !cliente && !anonimo ? (
             <>
               <RegistroDni email={user.email} onListo={setCliente} />

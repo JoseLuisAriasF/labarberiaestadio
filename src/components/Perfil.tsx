@@ -52,6 +52,13 @@ export default function Perfil() {
       <a href="/acceso" className="btn w-full">Entrar con celular y clave</a>
     </div>
   );
+  if (!cliente && user.email?.endsWith('@cliente.labarberiaestadio.pages.dev')) return (
+    <div className="max-w-sm mx-auto neu rounded-3xl p-6 grid gap-3">
+      <h1 className="titulo text-xl">Tu cuenta</h1>
+      <Aviso tipo="info">Aún no tenemos tu ficha de cliente. Si tu celular ya está en otra cuenta, pide al local que lo libere. Puedes seguir usando la app mientras tanto.</Aviso>
+      <button className="btn w-full" onClick={() => supabase.auth.signOut().then(() => location.reload())}>Cerrar sesión</button>
+    </div>
+  );
   if (!cliente) return <div className="max-w-sm mx-auto neu rounded-3xl p-6"><h1 className="titulo text-xl mb-4">Completa tu registro</h1><RegistroDni email={user.email} onListo={setCliente} /></div>;
 
   async function guardarDni(e: React.FormEvent<HTMLFormElement>) {
