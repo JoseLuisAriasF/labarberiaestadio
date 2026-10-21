@@ -464,10 +464,12 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
       {nuevo && !elegido && (
         <div className="panel grid gap-2">
           <p className="text-sm font-semibold">Registro rápido</p>
-          <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} autoFocus={!nuevo.nombre}
-            maxLength={60} placeholder="Nombre y apellido" className="campo" />
-          <input value={nuevo.telefono} onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })} inputMode="tel"
-            maxLength={15} placeholder="Celular 9xx xxx xxx" className="campo" />
+          <label className="grid gap-1"><span className="etiqueta">Nombre y apellido</span>
+            <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} autoFocus={!nuevo.nombre}
+              maxLength={60} placeholder="Ej. Carlos Pérez" className="campo" /></label>
+          <label className="grid gap-1"><span className="etiqueta">Número de celular</span>
+            <input value={nuevo.telefono} onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })} inputMode="tel"
+              maxLength={15} placeholder="9xx xxx xxx" className="campo" /></label>
           <button type="button" className="btn-acento" onClick={registrarNuevo}
             disabled={registrando || nuevo.nombre.trim().length < 2 || nuevo.telefono.replace(/\D/g, '').length < 6}>
             {registrando ? 'Guardando…' : 'Guardar y elegir'}
