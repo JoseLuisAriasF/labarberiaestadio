@@ -318,6 +318,7 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   const [elegido, setElegido] = useState<Cli | null>(null);
   const [nuevo, setNuevo] = useState<{ nombre: string; telefono: string } | null>(null);
   const [registrando, setRegistrando] = useState(false);
+  const [contacto, setContacto] = useState<{ nombre: string; telefono: string } | null>(null);
   const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
   const puedeContactos = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
 
@@ -349,7 +350,7 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
     return () => { vivo = false; };
   }, [elegido?.id, anonimo, barberiaId]);
 
-  function elegir(c: Cli) { setElegido(c); setQ(''); setResultados(null); setNuevo(null); setError(''); }
+  function elegir(c: Cli) { setElegido(c); setQ(''); setResultados(null); setNuevo(null); setContacto(null); setError(''); }
 
   function cambiarModo(m: 'DOCUMENTO' | 'ANONIMO') {
     setModo(m); setError(''); setQ(''); setResultados(null); setElegido(null); setNuevo(null); setHistorial(null); setAnonNombre('');
@@ -357,7 +358,10 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
 
   function abrirNuevo() {
     const digitos = q.replace(/\D/g, '');
-    setNuevo({ nombre: digitos.length >= 3 ? '' : q.trim(), telefono: digitos.length >= 6 ? q.trim() : '' });
+    setNuevo({
+      nombre: contacto?.nombre ?? (digitos.length >= 3 ? '' : q.trim()),
+      telefono: contacto?.telefono ?? (digitos.length >= 6 ? q.trim() : ''),
+    });
   }
 
   async function registrarNuevo() {
@@ -371,10 +375,13 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
 
   async function elegirContacto() {
     try {
-      const nav = navigator as unknown as { contacts: { select: (p: string[], o: object) => Promise<{ tel?: string[] }[]> } };
+      const nav = navigator as unknown as { contacts: { select: (p: string[], o: object) => Promise<{ name?: string[]; tel?: string[] }[]> } };
       const [c] = await nav.contacts.select(['name', 'tel'], { multiple: false });
       const tel = (c?.tel?.[0] ?? '').replace(/\D/g, '');
-      if (tel) setQ(tel.slice(-9));
+      if (!tel) return;
+      setContacto({ nombre: c.name?.[0] ?? '', telefono: tel });
+      setNuevo(null);
+      setQ(tel.slice(-9));
     } catch { /* el usuario canceló */ }
   }
 
@@ -423,11 +430,17 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
       ) : (
         <div className="relative grid gap-1.5">
           <label className="etiqueta" htmlFor="walkin-buscar">Cliente: celular, nombre o DNI</label>
-          <div className="flex gap-2">
-            <input id="walkin-buscar" value={q} onChange={(e) => { setQ(e.target.value); setNuevo(null); }}
-              autoFocus inputMode="search" autoComplete="off" placeholder="Escribe 3 caracteres" className="campo" />
-            {puedeContactos && <button type="button" className="btn shrink-0" onClick={elegirContacto} aria-label="Elegir de mis contactos">📇</button>}
-          </div>
+          {contacto && (
+            <div className="panel flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0"><b className="block truncate">📇 {contacto.nombre || 'Contacto'}</b><span className="block text-xs text-[var(--texto-suave)]">{contacto.telefono}</span></span>
+              <button type="button" className="shrink-0 text-xs underline text-[var(--texto-suave)]" onClick={() => { setContacto(null); setQ(''); setNuevo(null); }}>Quitar</button>
+            </div>
+          )}
+          <input id="walkin-buscar" value={q} onChange={(e) => { setQ(e.target.value); setNuevo(null); setContacto(null); }}
+            autoFocus inputMode="search" autoComplete="off" placeholder="Escribe 2 caracteres" className="campo" />
+          {puedeContactos && !contacto && (
+            <button type="button" className="btn w-full" onClick={elegirContacto}>📇 Elegir de mis contactos</button>
+          )}
           {resultados && resultados.length > 0 && (
             <ul role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 grid max-h-64 overflow-y-auto rounded-xl border border-[var(--borde)] bg-[var(--superficie)] p-1 shadow-lg">
               {resultados.map((c) => (
