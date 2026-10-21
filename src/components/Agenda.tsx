@@ -88,6 +88,18 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
     .slice().sort((a, b) => (orden[a.estado] ?? 9) - (orden[b.estado] ?? 9) || a.fecha_hora.localeCompare(b.fecha_hora));
   const cobrado = citas.filter((c) => c.estado === 'COMPLETADA').reduce((n, c) => n + Number(c.precio), 0);
 
+  // Número de orden de las agendas: por barbero y día, según la hora en que se reservó.
+  const ordenAgenda = new Map<string, number>();
+  const porBarberoDia = new Map<string, Cita[]>();
+  for (const c of vivas) {
+    if (c.tipo !== 'ONLINE' || !['PENDIENTE_PAGO', 'CONFIRMADA'].includes(c.estado)) continue;
+    const k = `${c.barbero_id}|${new Date(c.fecha_hora).toLocaleDateString('en-CA', { timeZone: 'America/Lima' })}`;
+    porBarberoDia.set(k, [...(porBarberoDia.get(k) ?? []), c]);
+  }
+  for (const grupo of porBarberoDia.values()) {
+    grupo.sort((a, b) => a.created_at.localeCompare(b.created_at)).forEach((c, i) => ordenAgenda.set(c.id, i + 1));
+  }
+
   const Fila = ({ c, conFecha }: { c: Cita; conFecha?: boolean }) => {
     const e = ESTADOS_CITA[c.estado];
     // La barra de color lee el estado de un vistazo, sin leer el texto.
@@ -97,6 +109,7 @@ export default function Agenda({ barberia, barberos, servicios, soloBarbero, pue
         <span className="w-16 tabular-nums text-base font-bold">{conFecha && <span className="block text-[10px] font-normal text-base-500">{dia(c.fecha_hora)}</span>}{hora(c.fecha_hora)}</span>
         <span className="flex-1 min-w-44">
           <span className="block text-sm font-medium">
+            {ordenAgenda.has(c.id) && <span className="chip mr-2 align-middle !py-0 !px-2 text-[11px] font-bold">Nº {ordenAgenda.get(c.id)}</span>}
             {c.tipo === 'WALKIN' ? `🚶 ${c.nombre_walkin || 'Sin cita'}` : c.clientes?.nombre || (c.nombre_walkin ? `👤 ${c.nombre_walkin}` : 'Cliente')}
             {c.clientes && <span className="ml-2 align-middle"><Insignia verificado={c.clientes.estado_verificacion === 'VERIFIED_100'} /></span>}
             {!c.clientes && c.tipo === 'ONLINE' && <span className="ml-2 align-middle chip !py-0 !px-2 text-[10px]">Anónimo · sin DNI</span>}
