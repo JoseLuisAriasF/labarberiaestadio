@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Play, UserPlus, X } from 'lucide-react';
 import { msg, notificar, subirImagen, supabase, urlComprobante } from '@/lib/supabase';
 import { hoyLima, sumarDias } from '@/lib/agenda';
-import { consultarDni } from '@/lib/dni';
 import type { Barberia, Barbero, Cita, Servicio } from '@/lib/tipos';
 import { ESTADOS_CITA, soles } from '@/lib/tipos';
 import { Aviso, BotonAccion, CampoImagen, Esqueleto, Hoja, Insignia } from './ui';
@@ -276,6 +275,8 @@ function Completar({ cita, barberiaId, onListo }: { cita: Cita; barberiaId: stri
   );
 }
 
+type Cli = { id: string; nombre: string | null; dni: string | null; telefono: string | null };
+
 export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaId: string; barberos: Barbero[]; servicios: Servicio[]; onListo: () => void }) {
   // Lo que más hace cada barbero sale primero: se busca más rápido en la lista.
   const [barberoId, setBarberoId] = useState(barberos[0]?.id ?? '');
@@ -296,59 +297,18 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   const ordenServicios = [...servicios].sort((a, b) => (conteo[b.id] ?? 0) - (conteo[a.id] ?? 0) || a.precio_base - b.precio_base);
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
-  // Dos modos excluyentes: cada uno muestra solo sus campos. Cambiar de modo limpia lo anterior.
   const [modo, setModo] = useState<'DOCUMENTO' | 'ANONIMO'>('DOCUMENTO');
   const anonimo = modo === 'ANONIMO';
-  const [nombre, setNombre] = useState('');
-  const [dni, setDni] = useState('');
-  const [tipo, setTipo] = useState<'DNI' | 'CE' | 'PASAPORTE'>('DNI');
-  const [frecuentes, setFrecuentes] = useState<{ nombre: string; dni: string }[]>([]);
-  const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
-  const [telefono, setTelefono] = useState('');
-  const [registrado, setRegistrado] = useState(false);
-  // Cliente que ya existe con ese documento: no hay nada que registrar.
-  const [existente, setExistente] = useState<{ id: string; nombre: string | null } | null>(null);
-  const [registrando, setRegistrando] = useState(false);
-  type Cli = { id: string; nombre: string | null; dni: string | null; telefono: string | null; estado_verificacion: string };
+  const [anonNombre, setAnonNombre] = useState('');
   const [q, setQ] = useState('');
   const [resultados, setResultados] = useState<Cli[] | null>(null);
-  const [elegido, setElegido] = useState<{ nombre: string | null; dni: string | null } | null>(null);
-  const [mostrarRegistro, setMostrarRegistro] = useState(false);
+  const [elegido, setElegido] = useState<Cli | null>(null);
+  const [nuevo, setNuevo] = useState<{ nombre: string; telefono: string } | null>(null);
+  const [registrando, setRegistrando] = useState(false);
+  const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
   const puedeContactos = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
-  // Cambiar el documento invalida el "ya registrado": nunca se registra solo, solo al pulsar el botón.
-  useEffect(() => setRegistrado(false), [dni, tipo]);
 
-  async function registrarSinCita() {
-    setError(''); setRegistrando(true);
-    // Sin nombre escrito, se toma del DNI (RENIEC) antes de registrar.
-    let nom = nombre.trim();
-    if (nom.length < 2 && tipo === 'DNI') {
-      const r = await consultarDni(dni);
-      if (r.error) { setRegistrando(false); return setError(r.error); }
-      nom = r.nombre!;
-      setNombre(nom);
-    }
-    if (nom.length < 2) { setRegistrando(false); return setError('Escribe el nombre del cliente'); }
-    const { error } = await supabase.rpc('barbero_registrar_cliente', {
-      p_dni: dni, p_tipo: tipo, p_nombre: nom, p_telefono: telefono.trim(),
-    });
-    setRegistrando(false);
-    if (error) return setError(msg(error));
-    setRegistrado(true);
-  }
-
-  function cambiarModo(m: 'DOCUMENTO' | 'ANONIMO') {
-    setModo(m); setError(''); setDni(''); setNombre(''); setHistorial(null);
-    setQ(''); setResultados(null); setElegido(null); setMostrarRegistro(false);
-  }
-
-  function elegir(c: { nombre: string | null; dni: string | null; telefono?: string | null }) {
-    setElegido({ nombre: c.nombre, dni: c.dni });
-    setNombre(c.nombre ?? ''); setDni(c.dni ?? ''); setTelefono(c.telefono ?? '');
-    setTipo('DNI'); setResultados(null); setMostrarRegistro(false); setQ(c.nombre ?? c.dni ?? '');
-  }
-
-  // Busca por DNI, nombre o celular mientras escribe.
+  // Busca mientras escribe: por celular, nombre o DNI.
   useEffect(() => {
     const t = q.trim();
     if (anonimo || elegido || t.length < 3) { setResultados(null); return; }
@@ -356,9 +316,45 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
     const espera = setTimeout(async () => {
       const { data } = await supabase.rpc('buscar_clientes_staff', { p_q: t });
       if (vivo) setResultados((data ?? []) as Cli[]);
-    }, 300);
+    }, 200);
     return () => { vivo = false; clearTimeout(espera); };
   }, [q, anonimo, elegido]);
+
+  // Lo que suele pedir este cliente en el local.
+  useEffect(() => {
+    setHistorial(null);
+    if (!elegido || anonimo) return;
+    let vivo = true;
+    supabase.from('citas').select('fecha_hora, servicios_cortes(nombre), barberos(nombre)')
+      .eq('barberia_id', barberiaId).eq('cliente_id', elegido.id).eq('estado', 'COMPLETADA')
+      .order('fecha_hora', { ascending: false }).limit(50)
+      .then(({ data }) => {
+        if (!vivo) return;
+        setHistorial(((data ?? []) as unknown as { fecha_hora: string; servicios_cortes: { nombre: string } | null; barberos: { nombre: string } | null }[])
+          .map((c) => ({ servicio: c.servicios_cortes?.nombre ?? 'Corte', fecha: c.fecha_hora, barbero: c.barberos?.nombre ?? '' })));
+      });
+    return () => { vivo = false; };
+  }, [elegido?.id, anonimo, barberiaId]);
+
+  function elegir(c: Cli) { setElegido(c); setQ(''); setResultados(null); setNuevo(null); setError(''); }
+
+  function cambiarModo(m: 'DOCUMENTO' | 'ANONIMO') {
+    setModo(m); setError(''); setQ(''); setResultados(null); setElegido(null); setNuevo(null); setHistorial(null); setAnonNombre('');
+  }
+
+  function abrirNuevo() {
+    const digitos = q.replace(/\D/g, '');
+    setNuevo({ nombre: digitos.length >= 3 ? '' : q.trim(), telefono: digitos.length >= 6 ? q.trim() : '' });
+  }
+
+  async function registrarNuevo() {
+    if (!nuevo) return;
+    setError(''); setRegistrando(true);
+    const { data, error } = await supabase.rpc('barbero_registrar_cliente_celular', { p_nombre: nuevo.nombre.trim(), p_telefono: nuevo.telefono.trim() });
+    setRegistrando(false);
+    if (error) return setError(msg(error));
+    elegir(data as Cli);
+  }
 
   async function elegirContacto() {
     try {
@@ -369,60 +365,20 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
     } catch { /* el usuario canceló */ }
   }
 
-  // Solo clientes con documento: un anónimo no tiene cartilla que recordar.
-  useEffect(() => {
-    supabase.from('citas').select('clientes(nombre, dni)').eq('barberia_id', barberiaId)
-      .order('fecha_hora', { ascending: false }).limit(300)
-      .then(({ data }) => {
-        const cuenta = new Map<string, { nombre: string; dni: string; n: number }>();
-        for (const c of (data ?? []) as unknown as { clientes: { nombre: string | null; dni: string | null } | null }[]) {
-          if (!c.clientes?.dni) continue;
-          const nom = c.clientes.nombre || c.clientes.dni;
-          cuenta.set(c.clientes.dni, { nombre: nom, dni: c.clientes.dni, n: (cuenta.get(c.clientes.dni)?.n ?? 0) + 1 });
-        }
-        setFrecuentes([...cuenta.values()].sort((a, b) => b.n - a.n).slice(0, 8));
-      });
-  }, [barberiaId]);
-
-  // Historial "lo de siempre": solo al tener un documento completo y en modo con documento.
-  useEffect(() => {
-    setHistorial(null); setExistente(null);
-    if (anonimo) return;
-    const valido = tipo === 'DNI' ? dni.length === 8 : dni.length >= 6;
-    if (!valido) return;
-    let vivo = true;
-    (async () => {
-      const { data: encontrados } = await supabase.rpc('buscar_cliente_dni', { p_dni: dni });
-      const hallado = (encontrados as { id: string; nombre: string | null }[] | null)?.[0];
-      const id = hallado?.id;
-      if (vivo) setExistente(hallado ? { id: hallado.id, nombre: hallado.nombre } : null);
-      if (!id) { if (vivo) setHistorial([]); return; }
-      const { data } = await supabase.from('citas').select('fecha_hora, servicios_cortes(nombre), barberos(nombre)')
-        .eq('barberia_id', barberiaId).eq('cliente_id', id).eq('estado', 'COMPLETADA')
-        .order('fecha_hora', { ascending: false }).limit(50);
-      if (!vivo) return;
-      setHistorial(((data ?? []) as unknown as { fecha_hora: string; servicios_cortes: { nombre: string } | null; barberos: { nombre: string } | null }[])
-        .map((c) => ({ servicio: c.servicios_cortes?.nombre ?? 'Corte', fecha: c.fecha_hora, barbero: c.barberos?.nombre ?? '' })));
-    })();
-    return () => { vivo = false; };
-  }, [dni, tipo, modo, barberiaId]);
-
   async function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!anonimo && !elegido && !dni) return setError('Busca al cliente o regístralo antes de agregarlo');
-    const f = new FormData(e.currentTarget);
+    if (!anonimo && !elegido) return setError('Busca al cliente o regístralo con su celular');
     setEnviando(true); setError('');
-    const { error } = await supabase.rpc('agregar_walkin', {
-      p_barbero: barberoId, p_nombre: nombre.trim() || 'Anónimo',
-      p_dni: anonimo ? null : dni.trim(), p_servicio: servicioId || null, p_tipo: tipo,
-    });
+    const { error } = anonimo
+      ? await supabase.rpc('agregar_walkin', { p_barbero: barberoId, p_nombre: anonNombre.trim() || 'Anónimo', p_dni: null, p_servicio: servicioId || null, p_tipo: 'DNI' })
+      : await supabase.rpc('agregar_walkin_cliente', { p_barbero: barberoId, p_cliente: elegido!.id, p_servicio: servicioId || null });
     setEnviando(false);
     if (error) setError(msg(error)); else onListo();
   }
 
   const opciones = [
-    { v: 'DOCUMENTO', t: 'Con documento', d: 'Suma cortes a su cartilla' },
-    { v: 'ANONIMO', t: 'Anónimo', d: 'Sin DNI · no se guarda' },
+    { v: 'DOCUMENTO', t: 'Con cliente', d: 'Suma cortes a su cartilla' },
+    { v: 'ANONIMO', t: 'Anónimo', d: 'Sin datos · no se guarda' },
   ] as const;
 
   return (
@@ -440,103 +396,77 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
       {anonimo ? (
         <div className="grid gap-2">
           <label><span className="etiqueta">Nombre (opcional)</span>
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={60} className="campo" placeholder="Déjalo vacío para “Anónimo”" /></label>
-          <p className="text-xs text-[var(--texto-suave)]">Corte sin documento: queda en caja y estadísticas, pero no crea cliente ni suma a una cartilla.</p>
+            <input value={anonNombre} onChange={(e) => setAnonNombre(e.target.value)} maxLength={60} className="campo" placeholder="Déjalo vacío para “Anónimo”" /></label>
+          <p className="text-xs text-[var(--texto-suave)]">Corte sin cliente: queda en caja y estadísticas, pero no suma a ninguna cartilla.</p>
+        </div>
+      ) : elegido ? (
+        <div className="panel flex items-center justify-between gap-3 text-sm">
+          <span className="min-w-0">
+            <b className="block truncate">{elegido.nombre ?? 'Sin nombre'}</b>
+            <span className="block text-xs text-[var(--texto-suave)]">{elegido.telefono ?? 'Sin celular'}{elegido.dni ? ` · DNI ${elegido.dni}` : ''}</span>
+          </span>
+          <button type="button" className="shrink-0 text-xs underline text-[var(--texto-suave)]" onClick={() => setElegido(null)}>Cambiar</button>
         </div>
       ) : (
-        <>
-          {frecuentes.length > 0 && (
-            <div className="grid gap-1.5">
-              <span className="etiqueta">Clientes frecuentes</span>
-              <div className="flex flex-wrap gap-1.5">
-                {frecuentes.map((c) => (
-                  <button type="button" key={c.dni} onClick={() => elegir({ nombre: c.nombre, dni: c.dni })}
-                    className="chip min-h-9 !px-3 !text-sm">{c.nombre}</button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="grid gap-1.5">
-            <label className="etiqueta" htmlFor="walkin-buscar">Buscar cliente</label>
-            <div className="flex gap-2">
-              <input id="walkin-buscar" value={q} onChange={(e) => { setQ(e.target.value); setElegido(null); setDni(''); setNombre(''); setTelefono(''); }}
-                placeholder="DNI, nombre o celular" autoComplete="off" className="campo" />
-              {puedeContactos && <button type="button" className="btn shrink-0" onClick={elegirContacto} aria-label="Elegir de mis contactos">📇</button>}
-            </div>
-            {resultados && resultados.length > 0 && (
-              <ul className="grid gap-1.5">
-                {resultados.map((c) => (
-                  <li key={c.id}>
-                    <button type="button" onClick={() => elegir(c)} className="panel w-full text-left">
-                      <b className="text-sm">{c.nombre ?? 'Sin nombre'}</b>
-                      <span className="block text-xs text-[var(--texto-suave)]">{c.dni ? `DNI ${c.dni}` : 'Sin DNI'}{c.telefono ? ` · ${c.telefono}` : ''}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!puedeContactos && <span className="text-xs text-[var(--texto-suave)]">Elegir de contactos funciona en Android con Chrome. En iPhone escribe el nombre o el celular.</span>}
+        <div className="relative grid gap-1.5">
+          <label className="etiqueta" htmlFor="walkin-buscar">Cliente: celular, nombre o DNI</label>
+          <div className="flex gap-2">
+            <input id="walkin-buscar" value={q} onChange={(e) => { setQ(e.target.value); setNuevo(null); }}
+              autoFocus inputMode="search" autoComplete="off" placeholder="Escribe 3 caracteres" className="campo" />
+            {puedeContactos && <button type="button" className="btn shrink-0" onClick={elegirContacto} aria-label="Elegir de mis contactos">📇</button>}
           </div>
+          {resultados && resultados.length > 0 && (
+            <ul role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 grid max-h-64 overflow-y-auto rounded-xl border border-[var(--borde)] bg-[var(--superficie)] p-1 shadow-lg">
+              {resultados.map((c) => (
+                <li key={c.id}>
+                  <button type="button" role="option" aria-selected={false} onClick={() => elegir(c)} className="w-full rounded-lg px-3 py-2 text-left hover:bg-acento-500/10">
+                    <b className="block text-sm">{c.nombre ?? 'Sin nombre'}</b>
+                    <span className="block text-xs text-[var(--texto-suave)]">{c.telefono ?? 'Sin celular'}{c.dni ? ` · DNI ${c.dni}` : ''}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {q.trim().length >= 3 && !nuevo && (
+            <button type="button" className="w-fit text-sm underline text-[var(--texto-suave)]" onClick={abrirNuevo}>
+              + Registrar cliente nuevo
+            </button>
+          )}
+        </div>
+      )}
 
-          {elegido && (
-            <div className="panel grid gap-1 text-sm">
-              <span>Cliente: <b>{elegido.nombre ?? 'Sin nombre'}</b>{elegido.dni ? ` · DNI ${elegido.dni}` : ' · sin DNI (no suma a cartilla)'}</span>
-              <button type="button" className="w-fit text-xs underline text-[var(--texto-suave)]" onClick={() => { setElegido(null); setDni(''); setNombre(''); setQ(''); setResultados(null); }}>Cambiar cliente</button>
-            </div>
-          )}
+      {nuevo && !elegido && (
+        <div className="panel grid gap-2">
+          <p className="text-sm font-semibold">Registro rápido</p>
+          <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} autoFocus={!nuevo.nombre}
+            maxLength={60} placeholder="Nombre y apellido" className="campo" />
+          <input value={nuevo.telefono} onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })} inputMode="tel"
+            maxLength={15} placeholder="Celular 9xx xxx xxx" className="campo" />
+          <button type="button" className="btn-acento" onClick={registrarNuevo}
+            disabled={registrando || nuevo.nombre.trim().length < 2 || nuevo.telefono.replace(/\D/g, '').length < 6}>
+            {registrando ? 'Guardando…' : 'Guardar y elegir'}
+          </button>
+        </div>
+      )}
 
-          {historial && (
-            <div className="panel grid gap-2 text-sm">
-              {historial.length === 0 ? <p>Cliente nuevo o sin cortes previos en el local.</p> : (() => {
-                const conteo = new Map<string, number>();
-                historial.forEach((h) => conteo.set(h.servicio, (conteo.get(h.servicio) ?? 0) + 1));
-                const [top, veces] = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0];
-                return (
-                  <>
-                    <p><b>Lo de siempre:</b> {top} <span className="text-[var(--texto-suave)]">({veces} de {historial.length} cortes)</span></p>
-                    <ul className="grid gap-1 text-xs text-[var(--texto-suave)]">
-                      {historial.slice(0, 3).map((h) => (
-                        <li key={h.fecha}>{new Date(h.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima', day: 'numeric', month: 'short' })} · {h.servicio} · con {h.barbero}</li>
-                      ))}
-                    </ul>
-                  </>
-                );
-              })()}
-            </div>
-          )}
-          {existente && !elegido && (
-            <p className="text-sm font-semibold text-emerald-500">✅ Ya está registrado{existente.nombre ? `: ${existente.nombre}` : ''}.</p>
-          )}
-
-          {!elegido && q.trim().length >= 3 && resultados !== null && (resultados.length === 0 || mostrarRegistro) && (
-            <div className="panel grid gap-3">
-              <p className="text-sm font-semibold">Registrar cliente nuevo</p>
-              <div className="flex gap-2">
-                <select value={tipo} onChange={(e) => { setTipo(e.target.value as typeof tipo); setDni(''); }} className="campo !w-auto" aria-label="Tipo de documento">
-                  <option value="DNI">DNI</option>
-                  <option value="CE">Carné de extranjería</option>
-                  <option value="PASAPORTE">Pasaporte</option>
-                </select>
-                <input id="walkin-doc" value={dni} inputMode={tipo === 'DNI' ? 'numeric' : 'text'}
-                  onChange={(e) => setDni(tipo === 'DNI' ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20).toUpperCase())}
-                  placeholder={tipo === 'DNI' ? '8 dígitos' : 'Número de documento'} className="campo" />
-              </div>
-              <label><span className="etiqueta">Nombre y apellidos</span>
-                <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={60} className="campo" /></label>
-              <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
-                <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" maxLength={15} className="campo" placeholder="9xx xxx xxx" /></label>
-              {registrado
-                ? <p className="text-sm font-semibold text-emerald-500">✅ Cliente registrado. Ya puedes agregarlo a la cola.</p>
-                : <button type="button" className="btn w-fit" onClick={registrarSinCita} disabled={registrando || dni.length < (tipo === 'DNI' ? 8 : 6)}>
-                    {registrando ? 'Registrando…' : '👤 Guardar solo el cliente'}
-                  </button>}
-            </div>
-          )}
-
-          {!elegido && q.trim().length >= 3 && resultados !== null && resultados.length > 0 && !mostrarRegistro && (
-            <button type="button" className="text-sm underline text-[var(--texto-suave)] w-fit" onClick={() => setMostrarRegistro(true)}>+ Registrar cliente nuevo</button>
-          )}
-        </>
+      {historial && elegido && (
+        <div className="panel grid gap-2 text-sm">
+          {historial.length === 0 ? <p>Primera vez en el local.</p> : (() => {
+            const conteoServ = new Map<string, number>();
+            historial.forEach((h) => conteoServ.set(h.servicio, (conteoServ.get(h.servicio) ?? 0) + 1));
+            const [top, veces] = [...conteoServ.entries()].sort((a, b) => b[1] - a[1])[0];
+            return (
+              <>
+                <p><b>Lo de siempre:</b> {top} <span className="text-[var(--texto-suave)]">({veces} de {historial.length} cortes)</span></p>
+                <ul className="grid gap-1 text-xs text-[var(--texto-suave)]">
+                  {historial.slice(0, 3).map((h) => (
+                    <li key={h.fecha}>{new Date(h.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima', day: 'numeric', month: 'short' })} · {h.servicio} · con {h.barbero}</li>
+                  ))}
+                </ul>
+              </>
+            );
+          })()}
+        </div>
       )}
 
       <label><span className="etiqueta">Barbero</span>
@@ -544,7 +474,9 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
       <label><span className="etiqueta">Servicio</span>
         <select value={servicioId} onChange={(e) => setServicioId(e.target.value)} className="campo">{ordenServicios.map((s) => <option key={s.id} value={s.id}>{conteo[s.id] ? `⭐ ${s.nombre}` : s.nombre} · {soles(s.precio_base)}{conteo[s.id] ? ` · ${conteo[s.id]} hechos` : ''}</option>)}</select></label>
       {error && <Aviso>{error}</Aviso>}
-      <button disabled={enviando || barberos.length === 0} className="btn-acento">{enviando ? 'Agregando…' : 'Agregar a la cola de hoy'}</button>
+      <button disabled={enviando || barberos.length === 0 || (!anonimo && !elegido)} className="btn-acento">
+        {enviando ? 'Agregando…' : !anonimo && !elegido ? 'Elige al cliente primero' : 'Agregar a la cola de hoy'}
+      </button>
     </form>
   );
 }
