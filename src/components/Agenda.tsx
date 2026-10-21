@@ -324,7 +324,7 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   // Busca mientras escribe: por celular, nombre o DNI.
   useEffect(() => {
     const t = q.trim();
-    if (anonimo || elegido || t.length < 1) { setResultados(null); return; }
+    if (anonimo || elegido || t.length < 2) { setResultados(null); return; }
     let vivo = true;
     const espera = setTimeout(async () => {
       const { data } = await supabase.rpc('buscar_clientes_staff', { p_q: t });
