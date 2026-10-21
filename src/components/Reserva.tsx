@@ -6,7 +6,7 @@ import { entrarConGoogle, useSesion } from '@/lib/useSesion';
 import type { Barbero } from '@/lib/tipos';
 import { DIAS, soles } from '@/lib/tipos';
 import type { DatosBarberia } from '@/lib/useBarberia';
-import { Aviso, BotonGoogle, Cargando, Esqueleto, Girando, Insignia, RegistroDni } from './ui';
+import { Aviso, BotonGoogle, Cargando, Esqueleto, Girando, Insignia } from './ui';
 
 const BORRADOR = 'be:reserva';
 interface Voucher { id: string; codigo: string; tipo_premio: string; valor_descuento: number; barbero_id: string | null }
@@ -209,15 +209,8 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 Prefiero reservar solo con mi nombre y celular
               </button>
             </>
-          ) : user && !cliente && !anonimo && user.email?.endsWith('@cliente.labarberiaestadio.pages.dev') ? (
-            <Aviso tipo="info">Tu cuenta aún no tiene su ficha de cliente. Si tu celular ya está en otra cuenta, pide al local que lo libere y vuelve a intentarlo. El DNI y el correo los puedes añadir después desde tu perfil.</Aviso>
           ) : user && !cliente && !anonimo ? (
-            <>
-              <RegistroDni email={user.email} onListo={setCliente} />
-              <button type="button" onClick={() => setAnonimo(true)} className="text-sm text-base-400 underline underline-offset-4 py-1">
-                Prefiero no registrar mi DNI: reservar de forma anónima
-              </button>
-            </>
+            <Aviso tipo="info">Cargando tu cuenta… Si no aparece, recarga la página.</Aviso>
           ) : (
             <>
               {sinCuenta ? (

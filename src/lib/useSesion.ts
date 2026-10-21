@@ -12,13 +12,14 @@ export function useSesion() {
   const cargarCliente = useCallback(async (u: User | null) => {
     if (!u) { setCliente(null); return; }
     const { data } = await supabase.from('clientes').select('*').eq('usuario_id', u.id).maybeSingle();
-    if (!data && u.email?.endsWith('@cliente.labarberiaestadio.pages.dev')) {
-      const nombre = String(u.user_metadata?.nombre ?? '').trim() || 'Cliente';
-      const creada = await supabase.rpc('registrar_cliente_celular', { p_nombre: nombre, p_telefono: u.email.split('@')[0] });
-      setCliente(creada.data as Cliente | null);
-      return;
+    if (data) { setCliente(data); return; }
+    const nombre = String(u.user_metadata?.nombre ?? u.user_metadata?.full_name ?? u.user_metadata?.name ?? '').trim() || 'Cliente';
+    let creada = null;
+    if (u.email?.endsWith('@cliente.labarberiaestadio.pages.dev')) {
+      creada = (await supabase.rpc('registrar_cliente_celular', { p_nombre: nombre, p_telefono: u.email.split('@')[0] })).data;
     }
-    setCliente(data);
+    if (!creada) creada = (await supabase.rpc('registrar_cliente_auto', { p_nombre: nombre })).data;
+    setCliente(creada as Cliente | null);
   }, []);
 
   useEffect(() => {

@@ -47,36 +47,6 @@ export function Insignia({ verificado }: { verificado: boolean }) {
     : <span className="chip text-amber-500">⏳ No verificado</span>;
 }
 
-/** Paso obligatorio tras Google: DNI (8 dígitos), nombre y teléfono. */
-export function RegistroDni({ email, onListo }: { email?: string; onListo: (c: Cliente) => void }) {
-  const [error, setError] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  async function enviar(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    setEnviando(true); setError('');
-    const { data, error } = await supabase.rpc('registrar_cliente', {
-      p_dni: String(f.get('dni')).trim(), p_nombre: String(f.get('nombre')).trim(), p_telefono: String(f.get('telefono')).trim(),
-    });
-    setEnviando(false);
-    if (error) return setError(msg(error));
-    onListo(data as Cliente);
-  }
-  return (
-    <form onSubmit={enviar} className="grid gap-3">
-      <p className="text-sm text-base-500">Conectado como <b>{email}</b>. Para evitar reservas falsas pedimos tu DNI una sola vez.</p>
-      <label><span className="etiqueta">DNI</span>
-        <input name="dni" required inputMode="numeric" pattern="[0-9]{8}" maxLength={8} autoComplete="off" className="campo" placeholder="8 dígitos" /></label>
-      <label><span className="etiqueta">Nombre</span>
-        <input name="nombre" required minLength={2} maxLength={60} autoComplete="name" className="campo" /></label>
-      <label><span className="etiqueta">Celular (opcional)</span>
-        <input name="telefono" type="tel" inputMode="tel" pattern="\+?[0-9 ]{6,15}" autoComplete="tel" className="campo" placeholder="9xx xxx xxx" /></label>
-      {error && <Aviso>{error}</Aviso>}
-      <button disabled={enviando} className="btn-acento">{enviando ? 'Guardando…' : 'Continuar'}</button>
-    </form>
-  );
-}
-
 export function BotonGoogle({ onClick, texto = 'Continuar con Google' }: { onClick: () => void; texto?: string }) {
   return (
     <button onClick={onClick} className="btn w-full">

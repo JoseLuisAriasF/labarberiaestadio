@@ -6,7 +6,7 @@ import { BotonAccion } from './ui';
 import { entrarConGoogle, useSesion } from '@/lib/useSesion';
 import type { Cita, Premio } from '@/lib/tipos';
 import { ESTADOS_CITA, soles } from '@/lib/tipos';
-import { Aviso, BotonGoogle, Cargando, Insignia, RegistroDni } from './ui';
+import { Aviso, BotonGoogle, Cargando, Insignia } from './ui';
 
 interface Progreso { id: string; barberia_id: string; barbero_id: string | null; total_cortes_acumulados: number; barberias: { nombre: string; modo_gamificacion: 'GLOBAL' | 'POR_BARBERO' }; barberos: { nombre: string } | null }
 interface Voucher { id: string; codigo: string; tipo_premio: string; valor_descuento: number; usado_at: string | null; created_at: string; barberias: { nombre: string }; barberos: { nombre: string } | null }
@@ -52,14 +52,12 @@ export default function Perfil() {
       <a href="/acceso" className="btn w-full">Entrar con celular y clave</a>
     </div>
   );
-  if (!cliente && user.email?.endsWith('@cliente.labarberiaestadio.pages.dev')) return (
+  if (!cliente) return (
     <div className="max-w-sm mx-auto neu rounded-3xl p-6 grid gap-3">
       <h1 className="titulo text-xl">Tu cuenta</h1>
-      <Aviso tipo="info">Aún no tenemos tu ficha de cliente. Si tu celular ya está en otra cuenta, pide al local que lo libere. Puedes seguir usando la app mientras tanto.</Aviso>
-      <button className="btn w-full" onClick={() => supabase.auth.signOut().then(() => location.reload())}>Cerrar sesión</button>
+      <Aviso tipo="info">No pudimos cargar tu ficha. Recarga la página; si sigue igual, avísale al local.</Aviso>
     </div>
   );
-  if (!cliente) return <div className="max-w-sm mx-auto neu rounded-3xl p-6"><h1 className="titulo text-xl mb-4">Completa tu registro</h1><RegistroDni email={user.email} onListo={setCliente} /></div>;
 
   async function guardarDni(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
