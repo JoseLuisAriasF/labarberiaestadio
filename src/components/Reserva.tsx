@@ -340,33 +340,24 @@ function Listo({ barbero, nombre, dni, servicio, precio, fecha, hora, duracion, 
   barbero: Barbero; nombre: string; dni?: string; servicio: string; precio: number; fecha: string; hora: string; duracion: number;
   resultado: Resultado; onListo: () => void;
 }) {
-  const ini = new Date(`${fecha}T${hora}:00-05:00`);
-  const fin = new Date(ini.getTime() + duracion * 60e3);
-  const f = (d: Date) => d.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
-  const cal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`${servicio} con ${barbero.nombre}`)}&dates=${f(ini)}/${f(fin)}&location=${encodeURIComponent(location.origin + '/como-llegar')}`;
+  const [avisado, setAvisado] = useState(false);
   const texto = nombre && mensajeWhatsApp({ barbero, nombre, dni, servicio, precio, fecha, hora, resultado });
   const wa = barbero.whatsapp && texto ? `https://wa.me/${barbero.whatsapp}?text=${encodeURIComponent(texto)}` : null;
-  const explica = resultado === 'CONFIRMADA'
-    ? 'Tu cita está confirmada. Te esperamos.'
-    : resultado === 'CON_COMPROBANTE'
-      ? 'Recibimos tu comprobante. Te confirmamos apenas lo validemos.'
-      : `${barbero.nombre} revisará tu solicitud. Escríbele por WhatsApp para que te confirme más rápido.`;
   return (
     <div className="grid gap-5 text-center py-2">
       <CheckCircle2 className="mx-auto size-14 text-emerald-400" />
       <div>
-        <p className="titulo text-xl">{resultado === 'CONFIRMADA' ? '¡Cita confirmada!' : '¡Solicitud enviada!'}</p>
+        <p className="titulo text-xl">¡Último paso!</p>
         <p className="text-sm text-base-400 mt-2">{servicio} con <b className="text-base-100">{barbero.nombre}</b><br />{DIAS[isoDow(fecha)]} {fecha.slice(8)} a las {hora}</p>
       </div>
-      <p className="panel text-sm text-left">{explica}</p>
-      {wa && (
-        <a href={wa} target="_blank" rel="noopener" className="btn-whatsapp w-full py-3.5">
-          <MessageCircle className="size-5" /> Avisar a {barbero.nombre} por WhatsApp
+      <p className="panel text-sm text-left">Envía el mensaje a {barbero.nombre} por WhatsApp. Así confirma tu cita desde su app.</p>
+      {wa ? (
+        <a href={wa} target="_blank" rel="noopener" onClick={() => setAvisado(true)} className="btn-whatsapp w-full py-3.5">
+          <MessageCircle className="size-5" /> Enviar a {barbero.nombre} por WhatsApp
         </a>
-      )}
-      <a href={cal} target="_blank" rel="noopener" className="btn w-full">📅 Añadir a Google Calendar</a>
-      <a href="/perfil" className="btn w-full">Ver mis citas</a>
-      <button onClick={onListo} className="text-sm text-base-500 py-2">Cerrar</button>
+      ) : <Aviso>Este barbero aún no tiene WhatsApp. Avísale en el local.</Aviso>}
+      <a href="/perfil" aria-disabled={!avisado} className={`btn w-full ${avisado ? '' : 'pointer-events-none opacity-40'}`}>Ver mis citas</a>
+      <button onClick={onListo} disabled={!avisado && !!wa} className="text-sm text-base-500 py-2 disabled:opacity-40">Cerrar</button>
     </div>
   );
 }
