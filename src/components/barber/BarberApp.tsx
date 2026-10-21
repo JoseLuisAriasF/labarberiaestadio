@@ -201,7 +201,7 @@ function CambiarClave({ onListo }: { onListo: () => void }) {
 function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<ReturnType<typeof useBarberia>['datos']>; recargar: () => void }) {
   const [horario, setHorario] = useState<Horario>(yo.horario_atencion);
   const [bio, setBio] = useState(yo.bio ?? '');
-  const [esp, setEsp] = useState(yo.especialidades_bestseller.join(', '));
+  const [espSel, setEspSel] = useState<string[]>(yo.especialidades_bestseller);
   const [yape, setYape] = useState(yo.yape_numero ?? '');
   const [plin, setPlin] = useState(yo.plin_numero ?? '');
   const [emailReal, setEmailReal] = useState(yo.email_real ?? '');
@@ -216,7 +216,7 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
     setError(''); setOk('');
     const { error } = await supabase.rpc('barbero_actualizar_perfil', {
       p_avatar: avatar || null, p_bio: bio, p_horario: horario,
-      p_especialidades: esp.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 8), p_yape: yape || null, p_plin: plin || null,
+      p_especialidades: espSel.slice(0, 8), p_yape: yape || null, p_plin: plin || null,
       p_email_real: emailReal || null, p_telefono_real: telReal || null, p_whatsapp: wa || null,
     });
     if (error) setError(msg(error)); else { setOk('Perfil guardado ✅'); recargar(); }
@@ -241,7 +241,22 @@ function Perfil({ yo, datos, recargar }: { yo: Barbero; datos: NonNullable<Retur
           <label className="btn cursor-pointer text-xs">Cambiar foto<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => foto(e.target.files?.[0])} /></label>
         </div>
         <label><span className="etiqueta">Sobre mí</span><textarea className="campo" rows={2} maxLength={300} value={bio} onChange={(e) => setBio(e.target.value)} /></label>
-        <label><span className="etiqueta">Especialidades (separadas por coma)</span><input className="campo" value={esp} onChange={(e) => setEsp(e.target.value)} placeholder="Fade, Diseños, Barba con toalla caliente" /></label>
+        <div className="grid gap-1.5">
+          <span className="etiqueta">Especialidades: toca los cortes que haces</span>
+          <div className="flex flex-wrap gap-1.5">
+            {datos.servicios.map((s) => {
+              const on = espSel.includes(s.nombre);
+              return (
+                <button key={s.id} type="button" aria-pressed={on}
+                  onClick={() => setEspSel(on ? espSel.filter((n) => n !== s.nombre) : [...espSel, s.nombre].slice(0, 8))}
+                  className={`min-h-10 rounded-xl border px-3 text-sm font-semibold transition-colors ${on ? 'border-acento-500 bg-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
+                  {on ? '✓ ' : ''}{s.nombre}
+                </button>
+              );
+            })}
+          </div>
+          {datos.servicios.length === 0 && <span className="text-xs text-[var(--texto-suave)]">La barbería aún no tiene servicios cargados.</span>}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label><span className="etiqueta">Email (notificaciones)</span><input className="campo" type="email" value={emailReal} onChange={(e) => setEmailReal(e.target.value)} placeholder="tu@gmail.com" /></label>
           <label><span className="etiqueta">Teléfono</span><input className="campo" inputMode="tel" value={telReal} onChange={(e) => setTelReal(e.target.value)} placeholder="987654321" /></label>
