@@ -302,7 +302,6 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   const [nombre, setNombre] = useState('');
   const [dni, setDni] = useState('');
   const [tipo, setTipo] = useState<'DNI' | 'CE' | 'PASAPORTE'>('DNI');
-  const [buscando, setBuscando] = useState(false);
   const [frecuentes, setFrecuentes] = useState<{ nombre: string; dni: string }[]>([]);
   const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
   const [telefono, setTelefono] = useState('');
@@ -310,6 +309,12 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   // Cliente que ya existe con ese documento: no hay nada que registrar.
   const [existente, setExistente] = useState<{ id: string; nombre: string | null } | null>(null);
   const [registrando, setRegistrando] = useState(false);
+  type Cli = { id: string; nombre: string | null; dni: string | null; telefono: string | null; estado_verificacion: string };
+  const [q, setQ] = useState('');
+  const [resultados, setResultados] = useState<Cli[] | null>(null);
+  const [elegido, setElegido] = useState<{ nombre: string | null; dni: string | null } | null>(null);
+  const [mostrarRegistro, setMostrarRegistro] = useState(false);
+  const puedeContactos = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
   // Cambiar el documento invalida el "ya registrado": nunca se registra solo, solo al pulsar el botón.
   useEffect(() => setRegistrado(false), [dni, tipo]);
 
@@ -334,6 +339,34 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
 
   function cambiarModo(m: 'DOCUMENTO' | 'ANONIMO') {
     setModo(m); setError(''); setDni(''); setNombre(''); setHistorial(null);
+    setQ(''); setResultados(null); setElegido(null); setMostrarRegistro(false);
+  }
+
+  function elegir(c: { nombre: string | null; dni: string | null; telefono?: string | null }) {
+    setElegido({ nombre: c.nombre, dni: c.dni });
+    setNombre(c.nombre ?? ''); setDni(c.dni ?? ''); setTelefono(c.telefono ?? '');
+    setTipo('DNI'); setResultados(null); setMostrarRegistro(false); setQ(c.nombre ?? c.dni ?? '');
+  }
+
+  // Busca por DNI, nombre o celular mientras escribe.
+  useEffect(() => {
+    const t = q.trim();
+    if (anonimo || elegido || t.length < 3) { setResultados(null); return; }
+    let vivo = true;
+    const espera = setTimeout(async () => {
+      const { data } = await supabase.rpc('buscar_clientes_staff', { p_q: t });
+      if (vivo) setResultados((data ?? []) as Cli[]);
+    }, 300);
+    return () => { vivo = false; clearTimeout(espera); };
+  }, [q, anonimo, elegido]);
+
+  async function elegirContacto() {
+    try {
+      const nav = navigator as unknown as { contacts: { select: (p: string[], o: object) => Promise<{ tel?: string[] }[]> } };
+      const [c] = await nav.contacts.select(['name', 'tel'], { multiple: false });
+      const tel = (c?.tel?.[0] ?? '').replace(/\D/g, '');
+      if (tel) setQ(tel.slice(-9));
+    } catch { /* el usuario canceló */ }
   }
 
   // Solo clientes con documento: un anónimo no tiene cartilla que recordar.
@@ -374,16 +407,9 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
     return () => { vivo = false; };
   }, [dni, tipo, modo, barberiaId]);
 
-  async function buscarDni() {
-    setError(''); setBuscando(true);
-    const r = await consultarDni(dni);
-    setBuscando(false);
-    if (r.error) return setError(r.error);
-    setNombre(r.nombre!);
-  }
-
   async function enviar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!anonimo && !elegido && !dni) return setError('Busca al cliente o regístralo antes de agregarlo');
     const f = new FormData(e.currentTarget);
     setEnviando(true); setError('');
     const { error } = await supabase.rpc('agregar_walkin', {
@@ -424,27 +450,41 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
               <span className="etiqueta">Clientes frecuentes</span>
               <div className="flex flex-wrap gap-1.5">
                 {frecuentes.map((c) => (
-                  <button type="button" key={c.dni} onClick={() => { setNombre(c.nombre); setDni(c.dni); setTipo('DNI'); }}
+                  <button type="button" key={c.dni} onClick={() => elegir({ nombre: c.nombre, dni: c.dni })}
                     className="chip min-h-9 !px-3 !text-sm">{c.nombre}</button>
                 ))}
               </div>
             </div>
           )}
           <div className="grid gap-1.5">
-            <label className="etiqueta" htmlFor="walkin-doc">Documento</label>
+            <label className="etiqueta" htmlFor="walkin-buscar">Buscar cliente</label>
             <div className="flex gap-2">
-              <select value={tipo} onChange={(e) => { setTipo(e.target.value as typeof tipo); setDni(''); }} className="campo !w-auto" aria-label="Tipo de documento">
-                <option value="DNI">DNI</option>
-                <option value="CE">Carné de extranjería</option>
-                <option value="PASAPORTE">Pasaporte</option>
-              </select>
-              <input id="walkin-doc" value={dni} required
-                onChange={(e) => setDni(tipo === 'DNI' ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20).toUpperCase())}
-                inputMode={tipo === 'DNI' ? 'numeric' : 'text'} placeholder={tipo === 'DNI' ? '8 dígitos' : 'Número de documento'} className="campo" />
-              {tipo === 'DNI' && <button type="button" className="btn shrink-0" disabled={dni.length !== 8 || buscando} onClick={buscarDni}>{buscando ? '…' : 'Buscar'}</button>}
+              <input id="walkin-buscar" value={q} onChange={(e) => { setQ(e.target.value); setElegido(null); setDni(''); setNombre(''); setTelefono(''); }}
+                placeholder="DNI, nombre o celular" autoComplete="off" className="campo" />
+              {puedeContactos && <button type="button" className="btn shrink-0" onClick={elegirContacto} aria-label="Elegir de mis contactos">📇</button>}
             </div>
-            <span className="text-xs text-[var(--texto-suave)]">Con el documento se suman los cortes a su cartilla.</span>
+            {resultados && resultados.length > 0 && (
+              <ul className="grid gap-1.5">
+                {resultados.map((c) => (
+                  <li key={c.id}>
+                    <button type="button" onClick={() => elegir(c)} className="panel w-full text-left">
+                      <b className="text-sm">{c.nombre ?? 'Sin nombre'}</b>
+                      <span className="block text-xs text-[var(--texto-suave)]">{c.dni ? `DNI ${c.dni}` : 'Sin DNI'}{c.telefono ? ` · ${c.telefono}` : ''}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!puedeContactos && <span className="text-xs text-[var(--texto-suave)]">Elegir de contactos funciona en Android con Chrome. En iPhone escribe el nombre o el celular.</span>}
           </div>
+
+          {elegido && (
+            <div className="panel grid gap-1 text-sm">
+              <span>Cliente: <b>{elegido.nombre ?? 'Sin nombre'}</b>{elegido.dni ? ` · DNI ${elegido.dni}` : ' · sin DNI (no suma a cartilla)'}</span>
+              <button type="button" className="w-fit text-xs underline text-[var(--texto-suave)]" onClick={() => { setElegido(null); setDni(''); setNombre(''); setQ(''); setResultados(null); }}>Cambiar cliente</button>
+            </div>
+          )}
+
           {historial && (
             <div className="panel grid gap-2 text-sm">
               {historial.length === 0 ? <p>Cliente nuevo o sin cortes previos en el local.</p> : (() => {
@@ -464,21 +504,37 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
               })()}
             </div>
           )}
-          <label><span className="etiqueta">Nombre y apellidos</span>
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} required minLength={2} maxLength={60} className="campo" /></label>
-          {!existente && !registrado && (
-            <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
-              <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" maxLength={15} className="campo" placeholder="9xx xxx xxx" /></label>
+          {existente && !elegido && (
+            <p className="text-sm font-semibold text-emerald-500">✅ Ya está registrado{existente.nombre ? `: ${existente.nombre}` : ''}.</p>
           )}
-          {existente ? (
-            <p className="text-sm font-semibold text-emerald-500">✅ Ya está registrado{existente.nombre ? `: ${existente.nombre}` : ''}. No hace falta registrarlo otra vez.</p>
-          ) : registrado ? (
-            <p className="text-sm font-semibold text-emerald-500">✅ Cliente registrado y verificado 100%, porque vino al local.</p>
-          ) : (
-            <button type="button" className="btn w-fit" onClick={registrarSinCita}
-              disabled={registrando || dni.length < (tipo === 'DNI' ? 8 : 6)}>
-              {registrando ? 'Registrando…' : '👤 Guardar solo el cliente'}
-            </button>
+
+          {!elegido && q.trim().length >= 3 && resultados !== null && (resultados.length === 0 || mostrarRegistro) && (
+            <div className="panel grid gap-3">
+              <p className="text-sm font-semibold">Registrar cliente nuevo</p>
+              <div className="flex gap-2">
+                <select value={tipo} onChange={(e) => { setTipo(e.target.value as typeof tipo); setDni(''); }} className="campo !w-auto" aria-label="Tipo de documento">
+                  <option value="DNI">DNI</option>
+                  <option value="CE">Carné de extranjería</option>
+                  <option value="PASAPORTE">Pasaporte</option>
+                </select>
+                <input id="walkin-doc" value={dni} inputMode={tipo === 'DNI' ? 'numeric' : 'text'}
+                  onChange={(e) => setDni(tipo === 'DNI' ? e.target.value.replace(/\D/g, '').slice(0, 8) : e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20).toUpperCase())}
+                  placeholder={tipo === 'DNI' ? '8 dígitos' : 'Número de documento'} className="campo" />
+              </div>
+              <label><span className="etiqueta">Nombre y apellidos</span>
+                <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={60} className="campo" /></label>
+              <label><span className="etiqueta">Celular (opcional, para avisarle)</span>
+                <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" maxLength={15} className="campo" placeholder="9xx xxx xxx" /></label>
+              {registrado
+                ? <p className="text-sm font-semibold text-emerald-500">✅ Cliente registrado. Ya puedes agregarlo a la cola.</p>
+                : <button type="button" className="btn w-fit" onClick={registrarSinCita} disabled={registrando || dni.length < (tipo === 'DNI' ? 8 : 6)}>
+                    {registrando ? 'Registrando…' : '👤 Guardar solo el cliente'}
+                  </button>}
+            </div>
+          )}
+
+          {!elegido && q.trim().length >= 3 && resultados !== null && resultados.length > 0 && !mostrarRegistro && (
+            <button type="button" className="text-sm underline text-[var(--texto-suave)] w-fit" onClick={() => setMostrarRegistro(true)}>+ Registrar cliente nuevo</button>
           )}
         </>
       )}
