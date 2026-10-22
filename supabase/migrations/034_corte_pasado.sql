@@ -15,7 +15,7 @@ begin
   if s.id is null then raise exception 'Servicio no válido'; end if;
   if not exists (select 1 from public.clientes where id = p_cliente) then raise exception 'Cliente no encontrado'; end if;
   if p_inicio > now() then raise exception 'Solo se registran cortes que ya se hicieron'; end if;
-  if p_inicio < now() - interval '2 days' then raise exception 'Solo se registran cortes de los últimos 2 días'; end if;
+  if p_inicio < now() - interval '31 days' then raise exception 'Solo se registran cortes de los últimos 31 días'; end if;
 
   select * into ba from public.barberias where id = br.barberia_id;
   com := coalesce(br.comision_pct, ba.comision_pct);

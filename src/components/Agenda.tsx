@@ -322,8 +322,8 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   // Corte que ya se hizo: se registra terminado de una vez, sin pasar por cola ni silla.
   const [yaHecho, setYaHecho] = useState(false);
   const [fechaHecho, setFechaHecho] = useState(() => hoyLima());
-  const diasHecho = [0, -1, -2].map((n) => sumarDias(hoyLima(), n));
-  const etiquetaDia = ['Hoy', 'Ayer', 'Antier'];
+  const diasHecho = [0, 1, 2, 3, 4, 5, 6].map((n) => sumarDias(hoyLima(), -n));
+  const etiquetaDia = (d: string, i: number) => (i === 0 ? 'Hoy' : i === 1 ? 'Ayer' : new Date(`${d}T12:00:00-05:00`).toLocaleDateString('es-PE', { timeZone: 'America/Lima', weekday: 'short' }));
   const [metodoHecho, setMetodoHecho] = useState<'EFECTIVO' | 'YAPE' | 'PLIN' | 'TRANSFERENCIA'>('EFECTIVO');
   const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
   const puedeContactos = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
@@ -521,15 +521,18 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
           {yaHecho && (
             <div className="panel grid gap-2">
               <span className="etiqueta">¿Qué día se hizo?</span>
-              <div role="radiogroup" aria-label="Día del corte" className="grid grid-cols-3 gap-2">
+              <div role="radiogroup" aria-label="Día del corte" className="grid grid-cols-4 gap-1.5">
                 {diasHecho.map((d, i) => (
                   <button key={d} type="button" role="radio" aria-checked={fechaHecho === d} onClick={() => setFechaHecho(d)}
-                    className={`min-h-14 rounded-xl border text-sm font-bold ${fechaHecho === d ? 'border-acento-500 bg-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
-                    <span className="block">{etiquetaDia[i]}</span>
-                    <span className="block text-xs font-normal opacity-80">{new Date(`${d}T12:00:00-05:00`).toLocaleDateString('es-PE', { timeZone: 'America/Lima', weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                    className={`min-h-14 rounded-xl border px-1 text-sm font-bold ${fechaHecho === d ? 'border-acento-500 bg-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
+                    <span className="block capitalize">{etiquetaDia(d, i)}</span>
+                    <span className="block text-xs font-normal opacity-80">{new Date(`${d}T12:00:00-05:00`).toLocaleDateString('es-PE', { timeZone: 'America/Lima', day: 'numeric', month: 'short' })}</span>
                   </button>
                 ))}
               </div>
+              <label className="grid gap-1"><span className="etiqueta">Otro día (hasta 31 días atrás)</span>
+                <input type="date" value={diasHecho.includes(fechaHecho) ? '' : fechaHecho} min={sumarDias(hoyLima(), -31)} max={hoyLima()}
+                  onChange={(e) => e.target.value && setFechaHecho(e.target.value)} className="campo" /></label>
               <label><span className="etiqueta">Cómo pagó</span>
                 <select value={metodoHecho} onChange={(e) => setMetodoHecho(e.target.value as typeof metodoHecho)} className="campo">
                   <option value="EFECTIVO">Efectivo</option><option value="YAPE">Yape</option><option value="PLIN">Plin</option><option value="TRANSFERENCIA">Transferencia</option>
