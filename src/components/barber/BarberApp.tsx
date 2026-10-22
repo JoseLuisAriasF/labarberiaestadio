@@ -16,6 +16,7 @@ import { Aviso, Cargando } from '../ui';
 export default function BarberApp() {
   const [yo, setYo] = useState<Barbero | null>(null);
   const [tab, setTab] = useState<'jornada' | 'agenda' | 'perfil' | 'clientes'>('jornada');
+  const [masAbierto, setMasAbierto] = useState(false);
   const [nuevoCorte, setNuevoCorte] = useState(false);
 
   useEffect(() => {
@@ -58,7 +59,7 @@ export default function BarberApp() {
       <div className="flex justify-end -mb-2">
         <button type="button" onClick={() => iniciarAyudaVista(tab)} className="btn !py-1.5 text-xs">❔ Ayuda de esta sección</button>
       </div>
-      <nav aria-label="Secciones" style={{ gridTemplateColumns: `repeat(${tieneAdmin ? 6 : 5}, minmax(0, 1fr))` }} className="neu-inset rounded-2xl p-1 grid gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
+      <nav aria-label="Secciones" className="neu-inset rounded-2xl p-1 grid grid-cols-5 gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
         {([['jornada', 'Inicio', Clock], ['agenda', 'Citas', CalendarDays]] as const).map(([id, t, I]) => (
           <button key={id} onClick={() => setTab(id)} data-guia={`tab-${id}`} aria-pressed={tab === id}
             className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
@@ -70,18 +71,28 @@ export default function BarberApp() {
           <span className="-mt-5 grid size-12 place-items-center rounded-full bg-red-800 text-white shadow-lg"><Scissors className="size-6" /></span>
           Corte
         </button>
-        {([['clientes', 'Clientes', Users], ['perfil', 'Mi perfil', User]] as const).map(([id, t, I]) => (
-          <button key={id} onClick={() => setTab(id)} data-guia={`tab-${id}`} aria-pressed={tab === id}
-            className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
-            <I className="size-5" />{t}
-          </button>
-        ))}
-        {tieneAdmin && (
-          <a href="/admin" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)]">
+        <button onClick={() => setTab('clientes')} data-guia="tab-clientes" aria-pressed={tab === 'clientes'}
+          className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
+          <Users className="size-5" />Clientes
+        </button>
+        {tieneAdmin ? (
+          <button type="button" onClick={() => setMasAbierto(true)} aria-label="Más opciones"
+            className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)]">
             <LayoutGrid className="size-5" />Más
-          </a>
+          </button>
+        ) : (
+          <button onClick={() => setTab('perfil')} data-guia="tab-perfil" aria-pressed={tab === 'perfil'}
+            className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
+            <User className="size-5" />Mi perfil
+          </button>
         )}
       </nav>
+      <Hoja abierta={masAbierto} onClose={() => setMasAbierto(false)} titulo="Más opciones">
+        <div className="grid gap-2">
+          <button type="button" onClick={() => { setMasAbierto(false); setTab('perfil'); }} className="btn w-full justify-start">👤 Mi perfil</button>
+          <a href="/admin" className="btn-acento w-full text-center">🔑 Panel de administración (tus permisos)</a>
+        </div>
+      </Hoja>
       <Hoja abierta={nuevoCorte} onClose={() => setNuevoCorte(false)} titulo="Nuevo corte (sin cita)">
         <Walkin barberiaId={vivo.barberia_id} barberos={[vivo]} servicios={datos.servicios}
           onListo={() => { setNuevoCorte(false); setTab('jornada'); }} />
