@@ -5,7 +5,7 @@ import { msg, supabase } from '@/lib/supabase';
 import type { Cliente } from '@/lib/tipos';
 
 /** Claro u oscuro: el mismo interruptor que la web pública (clave be:tema). */
-export function AlternarTema({ className = 'btn !p-2' }: { className?: string }) {
+export function AlternarTema({ className = 'btn !py-1.5 !px-2.5 shrink-0' }: { className?: string }) {
   const [oscuro, setOscuro] = useState(() => document.documentElement.classList.contains('dark'));
   function cambiar() {
     const nuevo = !oscuro;
@@ -16,7 +16,7 @@ export function AlternarTema({ className = 'btn !p-2' }: { className?: string })
   }
   return (
     <button type="button" onClick={cambiar} aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} className={className}>
-      {oscuro ? <Sun className="size-5" /> : <Moon className="size-5" />}
+      {oscuro ? <Sun className="size-4" /> : <Moon className="size-4" />}
     </button>
   );
 }
