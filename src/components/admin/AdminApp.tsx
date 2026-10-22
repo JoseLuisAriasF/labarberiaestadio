@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, CircleHelp, Clock, Gift, Home, LayoutGrid, LogOut, MapPin, Menu, Moon, Package, PartyPopper, Scissors, ShieldCheck, Sun, UserCheck, Users, Wallet, X } from 'lucide-react';
+import { BarChart3, CalendarDays, CircleHelp, Clock, Gift, Home, LayoutGrid, LogOut, MapPin, Menu, Moon, Package, PartyPopper, Scissors, ShieldCheck, Sun, User, UserCheck, Users, Wallet, X } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
 import BarberApp from '../barber/BarberApp';
 import { iniciarAyudaVista, iniciarGuia } from '@/lib/guia';
@@ -176,7 +176,12 @@ export default function AdminApp() {
 
       <Hoja abierta={masAbierto} onClose={() => setMasAbierto(false)} titulo="Mis módulos">
         <div className="grid grid-cols-3 gap-2">
-          {visibles.map(({ id, t, I }) => (
+          {!esDueno && (
+            <a href="/barber#perfil" className="grid min-h-24 place-items-center gap-1 rounded-2xl border border-[var(--borde)] bg-[var(--tarjeta)] p-2 text-center text-sm font-semibold">
+              <User className="size-6" aria-hidden="true" />Mi perfil
+            </a>
+          )}
+          {visibles.filter((t) => esDueno || t.id !== 'mijornada').map(({ id, t, I }) => (
             <button key={id} type="button" onClick={() => { ir(id); setMasAbierto(false); }}
               className={`grid min-h-24 place-items-center gap-1 rounded-2xl border p-2 text-center text-sm font-semibold ${tab === id ? 'border-acento-500 bg-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
               <I className="size-6" aria-hidden="true" />{t}
