@@ -150,6 +150,7 @@ export default function AdminApp() {
         {sidebar}
       </aside>
 
+      {esDueno && (
       {/* Mobile header + overlay */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#0a0a1a]/95 backdrop-blur-sm border-b border-white/5 flex items-center px-4 gap-3">
         {esDueno && (
@@ -166,6 +167,7 @@ export default function AdminApp() {
           </button>
         </div>
       </div>
+      )}
       {esDueno && menuAbierto && (
         <>
           <div className="lg:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMenuAbierto(false)} />
@@ -216,7 +218,7 @@ export default function AdminApp() {
       </nav>}
 
       {/* Content */}
-      <div className="flex-1 min-w-0 lg:px-6 px-4 py-4 pb-24 lg:py-6 lg:pb-6 lg:mt-0 mt-14">
+      <div className={`flex-1 min-w-0 lg:px-6 px-4 py-4 pb-24 lg:py-6 lg:pb-6 lg:mt-0 ${esDueno ? 'mt-14' : ''}`}>
         <div data-vista={tab} className="w-full grid gap-4">
           {barberia.plan === 'TRIAL' && (pruebaOculta ? (
             <button type="button" onClick={() => setTab('licencia')} className="w-fit rounded-full border border-[var(--borde)] px-3 py-1 text-xs font-semibold text-[var(--texto-suave)] hover:text-[var(--texto)]">
