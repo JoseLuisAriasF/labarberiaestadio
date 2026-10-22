@@ -75,6 +75,7 @@ export default function AdminApp() {
   const [masAbierto, setMasAbierto] = useState(false);
   // Dueño: todo. Administrador delegado o barbero con módulos: solo lo que le dio el dueño.
   const [esDueno, setEsDueno] = useState(true);
+  const [yoBarbero, setYoBarbero] = useState<{ nombre: string; avatar_url: string | null; cola: number } | null>(null);
   const [permitidos, setPermitidos] = useState<Acceso>(null);
 
   useEffect(() => {
@@ -85,11 +86,12 @@ export default function AdminApp() {
         setBarberiaId(data.id); setUserId(user.id); setEsDueno(true); setPermitidos('todos');
         return;
       }
-      const { data: yo } = await supabase.from('barberos').select('barberia_id, es_admin, permisos')
+      const { data: yo } = await supabase.from('barberos').select('barberia_id, es_admin, permisos, nombre, avatar_url, cola')
         .eq('usuario_id', user.id).eq('activo', true).maybeSingle();
       const modulos = (yo?.permisos ?? []) as string[];
       if (!yo || (!yo.es_admin && modulos.length === 0)) return location.replace('/login');
       setBarberiaId(yo.barberia_id); setUserId(user.id); setEsDueno(false);
+      setYoBarbero({ nombre: yo.nombre, avatar_url: yo.avatar_url, cola: yo.cola });
       setPermitidos(yo.es_admin ? 'todos' : modulos);
     });
   }, []);
@@ -219,6 +221,22 @@ export default function AdminApp() {
 
       {/* Content */}
       <div className={`flex-1 min-w-0 lg:px-6 px-4 py-4 pb-24 lg:py-6 lg:pb-6 lg:mt-0 ${esDueno ? 'mt-14' : ''}`}>
+        {!esDueno && yoBarbero && (
+          <header className="flex items-center gap-3">
+            {yoBarbero.avatar_url ? <img src={yoBarbero.avatar_url} alt="" className="size-12 rounded-full object-cover" />
+              : <span className="grid size-12 place-items-center rounded-full bg-acento-500 font-bold text-black">{yoBarbero.nombre.slice(0, 2).toUpperCase()}</span>}
+            <div className="min-w-0 flex-1">
+              <h1 className="titulo text-lg">Hola, {yoBarbero.nombre.split(' ')[0]} ✂️</h1>
+              <p className="text-xs text-base-500 truncate">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{yoBarbero.cola}</b></p>
+            </div>
+            <button type="button" onClick={() => supabase.auth.signOut().then(() => location.replace('/login'))} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
+          </header>
+        )}
+        {!esDueno && (
+          <div className="flex justify-end -mb-2">
+            <button type="button" onClick={() => iniciarAyudaVista(tab)} className="btn !py-1.5 text-xs">❔ Ayuda de esta sección</button>
+          </div>
+        )}
         <div data-vista={tab} className="w-full grid gap-4">
           {barberia.plan === 'TRIAL' && (pruebaOculta ? (
             <button type="button" onClick={() => setTab('licencia')} className="w-fit rounded-full border border-[var(--borde)] px-3 py-1 text-xs font-semibold text-[var(--texto-suave)] hover:text-[var(--texto)]">
