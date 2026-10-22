@@ -29,7 +29,8 @@ import Base from '@/layouts/Base.astro';
     if (user.email?.endsWith('@cliente.labarberiaestadio.pages.dev')) return location.replace('/perfil');
     const { data: b } = await supabase.from('barberias').select('id').eq('owner_id', user.id).maybeSingle();
     if (b) return location.replace('/admin');
-    const { data: br } = await supabase.from('barberos').select('id').eq('usuario_id', user.id).maybeSingle();
+    const { data: br } = await supabase.from('barberos').select('id, es_admin, permisos').eq('usuario_id', user.id).maybeSingle();
+    if (br && (br.es_admin || (br.permisos?.length ?? 0) > 0)) return location.replace('/admin');
     if (br) return location.replace('/barber');
     location.replace('/perfil');
   }

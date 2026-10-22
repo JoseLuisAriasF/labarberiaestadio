@@ -52,6 +52,7 @@ export default function BarberApp() {
           <h1 className="titulo text-lg">Hola, {vivo.nombre.split(' ')[0]} ✂️</h1>
           <p className="text-xs text-base-500 truncate">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
         </div>
+        {(vivo.es_admin || (vivo.permisos?.length ?? 0) > 0) && <a href="/admin" className="btn !py-1.5 text-xs shrink-0">Panel de administración</a>}
         <button type="button" onClick={cerrarSesion} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
       </header>
       <div className="flex justify-end -mb-2">
