@@ -35,6 +35,7 @@ export default function BarberApp() {
     return h === 'agenda' || h === 'clientes' || h === 'perfil' ? h : 'jornada';
   });
   const [masAbierto, setMasAbierto] = useState(false);
+  const [menuAvatar, setMenuAvatar] = useState(false);
   const [nuevoCorte, setNuevoCorte] = useState(() => location.hash === '#corte');
 
   useEffect(() => {
@@ -63,17 +64,28 @@ export default function BarberApp() {
   return (
     <div data-vista={tab} className="grid gap-5 max-w-3xl mx-auto pb-28 sm:pb-0">
       <header className="flex items-center gap-3">
-        {/* Tocar la foto o las iniciales abre "Mi perfil" para cambiar foto y datos. */}
-        <button type="button" onClick={() => setTab('perfil')} aria-label="Editar mi perfil" className="shrink-0 rounded-full ring-2 ring-transparent hover:ring-acento-500/60 transition">
-          {vivo.avatar_url ? <img src={vivo.avatar_url} alt="" className="size-12 rounded-full object-cover" />
-            : <span className="grid size-12 place-items-center rounded-full bg-acento-500 font-bold text-black">{vivo.nombre.slice(0, 2).toUpperCase()}</span>}
-        </button>
+        {/* Tocar el círculo abre el menú: Mi perfil y Cerrar sesión. */}
+        <div className="relative shrink-0">
+          <button type="button" onClick={() => setMenuAvatar(!menuAvatar)} aria-label="Mi cuenta" aria-expanded={menuAvatar}
+            className="rounded-full ring-2 ring-transparent transition duration-150 hover:ring-acento-500/60 active:scale-90">
+            {vivo.avatar_url ? <img src={vivo.avatar_url} alt="" className="size-12 rounded-full object-cover" />
+              : <span className="grid size-12 place-items-center rounded-full bg-acento-500 font-bold text-black">{vivo.nombre.slice(0, 2).toUpperCase()}</span>}
+          </button>
+          {menuAvatar && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setMenuAvatar(false)} />
+              <div className="absolute left-0 top-14 z-40 grid w-44 gap-1 rounded-2xl border border-[var(--borde)] bg-[var(--superficie)] p-2 shadow-xl animate-[fadeIn_150ms_ease-out]">
+                <button type="button" onClick={() => { setMenuAvatar(false); setTab('perfil'); }} className="rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-acento-500/10">👤 Mi perfil</button>
+                <button type="button" onClick={cerrarSesion} className="rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-500 hover:bg-red-500/10">Cerrar sesión</button>
+              </div>
+            </>
+          )}
+        </div>
         <div className="min-w-0 flex-1">
           <h1 className="titulo text-lg">Hola, {vivo.nombre.split(' ')[0]} ✂️</h1>
           <p className="text-xs text-base-500 truncate">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
         </div>
         <AlternarTema />
-        <button type="button" onClick={cerrarSesion} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
       </header>
       <div className="flex justify-end -mb-2">
         <button type="button" onClick={() => iniciarAyudaVista(tab)} className="btn !py-1.5 text-xs">❔ Ayuda de esta sección</button>
