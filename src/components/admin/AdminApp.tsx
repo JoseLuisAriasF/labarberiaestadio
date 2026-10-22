@@ -158,7 +158,6 @@ export default function AdminApp() {
         </button>
         )}
         <span className="text-sm font-semibold text-white truncate">{barberia.nombre}</span>
-        {!esDueno && <a href="/barber" className="ml-2 rounded-lg border border-white/20 px-2 py-1 text-xs font-semibold text-white">← Mi jornada</a>}
         <div className="ml-auto flex items-center gap-1">
           <AlternarTema />
           <button type="button" onClick={() => iniciarAyudaVista(tab)} aria-label="Ayuda de esta sección"
