@@ -8,7 +8,7 @@ import type { Premio, Producto, Servicio } from '@/lib/tipos';
 import { soles } from '@/lib/tipos';
 import Agenda from '../Agenda';
 import ClientesPanel from '../ClientesPanel';
-import { Aviso, Cargando, Hoja } from '../ui';
+import { Aviso, AlternarTema, Cargando, Hoja } from '../ui';
 import Crud from './Crud';
 import Equipo from './Equipo';
 import Estadisticas from './Estadisticas';
@@ -42,22 +42,6 @@ const MODULO_DE: Partial<Record<Tab, string>> = {
   productos: 'productos', finanzas: 'finanzas', estadisticas: 'estadisticas', local: 'local', festivos: 'festivos',
 };
 /** Claro u oscuro: el mismo interruptor que la web pública (clave be:tema). */
-function AlternarTema() {
-  const [oscuro, setOscuro] = useState(() => document.documentElement.classList.contains('dark'));
-  function cambiar() {
-    const nuevo = !oscuro;
-    setOscuro(nuevo);
-    try { localStorage.setItem('be:tema', nuevo ? 'dark' : 'light'); } catch { /* sin almacenamiento */ }
-    document.documentElement.dataset.tema = nuevo ? 'dark' : 'light';
-    document.documentElement.classList.toggle('dark', nuevo);
-  }
-  return (
-    <button type="button" onClick={cambiar} aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-      className="grid size-10 place-items-center rounded-lg text-white hover:bg-white/10">
-      {oscuro ? <Sun className="size-5" /> : <Moon className="size-5" />}
-    </button>
-  );
-}
 
 type Acceso = string[] | 'todos' | null;
 const accesoA = (id: Tab, p: Acceso) => {
@@ -162,7 +146,7 @@ export default function AdminApp() {
         )}
         <span className="text-sm font-semibold text-white truncate">{barberia.nombre}</span>
         <div className="ml-auto flex items-center gap-1">
-          <AlternarTema />
+          <AlternarTema className="grid size-10 place-items-center rounded-lg text-white hover:bg-white/10" />
           <button type="button" onClick={() => iniciarAyudaVista(tab)} aria-label="Ayuda de esta sección"
             className="grid size-10 place-items-center rounded-lg text-white hover:bg-white/10">
             <CircleHelp className="size-5" />
@@ -229,6 +213,7 @@ export default function AdminApp() {
               <h1 className="titulo text-lg">Hola, {yoBarbero.nombre.split(' ')[0]} ✂️</h1>
               <p className="text-xs text-base-500 truncate">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{yoBarbero.cola}</b></p>
             </div>
+            <AlternarTema />
             <button type="button" onClick={() => supabase.auth.signOut().then(() => location.replace('/login'))} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
           </header>
         )}

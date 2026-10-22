@@ -9,7 +9,7 @@ import Agenda, { Walkin } from '../Agenda';
 import HoyYManana from './Inicio';
 import EditorHorario from '../Horario';
 import ClientesPanel from '../ClientesPanel';
-import { BotonAccion, Hoja } from '../ui';
+import { BotonAccion, Hoja, AlternarTema } from '../ui';
 import { iniciarAyudaVista } from '@/lib/guia';
 import { Aviso, Cargando } from '../ui';
 
@@ -72,6 +72,7 @@ export default function BarberApp() {
           <h1 className="titulo text-lg">Hola, {vivo.nombre.split(' ')[0]} ✂️</h1>
           <p className="text-xs text-base-500 truncate">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
         </div>
+        <AlternarTema />
         <button type="button" onClick={cerrarSesion} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
       </header>
       <div className="flex justify-end -mb-2">

@@ -1,8 +1,25 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Upload, X } from 'lucide-react';
+import { Moon, Sun, Upload, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { msg, supabase } from '@/lib/supabase';
 import type { Cliente } from '@/lib/tipos';
+
+/** Claro u oscuro: el mismo interruptor que la web pública (clave be:tema). */
+export function AlternarTema({ className = 'btn !p-2' }: { className?: string }) {
+  const [oscuro, setOscuro] = useState(() => document.documentElement.classList.contains('dark'));
+  function cambiar() {
+    const nuevo = !oscuro;
+    setOscuro(nuevo);
+    try { localStorage.setItem('be:tema', nuevo ? 'dark' : 'light'); } catch { /* sin almacenamiento */ }
+    document.documentElement.dataset.tema = nuevo ? 'dark' : 'light';
+    document.documentElement.classList.toggle('dark', nuevo);
+  }
+  return (
+    <button type="button" onClick={cambiar} aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} className={className}>
+      {oscuro ? <Sun className="size-5" /> : <Moon className="size-5" />}
+    </button>
+  );
+}
 
 /** Hoja inferior en móvil, diálogo centrado en escritorio. Esc y fondo cierran. */
 export function Hoja({ abierta, onClose, titulo, children, ancho = 'sm:max-w-lg' }: {
