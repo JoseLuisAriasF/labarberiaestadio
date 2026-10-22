@@ -321,9 +321,9 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   const [contacto, setContacto] = useState<{ nombre: string; telefono: string } | null>(null);
   // Corte que ya se hizo: se registra terminado de una vez, sin pasar por cola ni silla.
   const [yaHecho, setYaHecho] = useState(false);
-  const ahoraLima = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
-  const [horaHecho, setHoraHecho] = useState(ahoraLima);
   const [fechaHecho, setFechaHecho] = useState(() => hoyLima());
+  const diasHecho = [0, -1, -2].map((n) => sumarDias(hoyLima(), n));
+  const etiquetaDia = ['Hoy', 'Ayer', 'Antier'];
   const [metodoHecho, setMetodoHecho] = useState<'EFECTIVO' | 'YAPE' | 'PLIN' | 'TRANSFERENCIA'>('EFECTIVO');
   const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
   const puedeContactos = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
@@ -398,7 +398,7 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
     if (yaHecho) {
       const { error } = await supabase.rpc('registrar_corte_pasado', {
         p_barbero: barberoId, p_cliente: elegido!.id, p_servicio: servicioId || null,
-        p_inicio: new Date(`${fechaHecho}T${horaHecho}:00-05:00`).toISOString(), p_metodo: metodoHecho,
+        p_inicio: new Date(fechaHecho === hoyLima() ? Date.now() - 60000 : `${fechaHecho}T12:00:00-05:00`).toISOString(), p_metodo: metodoHecho,
       });
       setEnviando(false);
       if (error) setError(msg(error)); else onListo();
@@ -520,10 +520,16 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
           </button>
           {yaHecho && (
             <div className="panel grid gap-2">
-              <label><span className="etiqueta">Día en que se hizo</span>
-                <input type="date" value={fechaHecho} min={sumarDias(hoyLima(), -2)} max={hoyLima()} onChange={(e) => setFechaHecho(e.target.value)} className="campo" /></label>
-              <label><span className="etiqueta">Hora en que se hizo</span>
-                <input type="time" value={horaHecho} onChange={(e) => setHoraHecho(e.target.value)} className="campo" /></label>
+              <span className="etiqueta">¿Qué día se hizo?</span>
+              <div role="radiogroup" aria-label="Día del corte" className="grid grid-cols-3 gap-2">
+                {diasHecho.map((d, i) => (
+                  <button key={d} type="button" role="radio" aria-checked={fechaHecho === d} onClick={() => setFechaHecho(d)}
+                    className={`min-h-14 rounded-xl border text-sm font-bold ${fechaHecho === d ? 'border-acento-500 bg-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
+                    <span className="block">{etiquetaDia[i]}</span>
+                    <span className="block text-xs font-normal opacity-80">{new Date(`${d}T12:00:00-05:00`).toLocaleDateString('es-PE', { timeZone: 'America/Lima', weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                  </button>
+                ))}
+              </div>
               <label><span className="etiqueta">Cómo pagó</span>
                 <select value={metodoHecho} onChange={(e) => setMetodoHecho(e.target.value as typeof metodoHecho)} className="campo">
                   <option value="EFECTIVO">Efectivo</option><option value="YAPE">Yape</option><option value="PLIN">Plin</option><option value="TRANSFERENCIA">Transferencia</option>
