@@ -150,8 +150,8 @@ export default function AdminApp() {
         {sidebar}
       </aside>
 
-      {esDueno && (
       {/* Mobile header + overlay */}
+      {esDueno && (
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#0a0a1a]/95 backdrop-blur-sm border-b border-white/5 flex items-center px-4 gap-3">
         {esDueno && (
         <button onClick={() => setMenuAbierto(!menuAbierto)} className="text-white p-1">
