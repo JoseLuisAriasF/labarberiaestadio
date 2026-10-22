@@ -75,7 +75,7 @@ export default function AdminApp() {
   const [masAbierto, setMasAbierto] = useState(false);
   // Dueño: todo. Administrador delegado o barbero con módulos: solo lo que le dio el dueño.
   const [esDueno, setEsDueno] = useState(true);
-  const [yoBarbero, setYoBarbero] = useState<{ nombre: string; avatar_url: string | null; cola: number } | null>(null);
+  const [yoBarbero, setYoBarbero] = useState<{ id: string; nombre: string; avatar_url: string | null; cola: number } | null>(null);
   const [permitidos, setPermitidos] = useState<Acceso>(null);
 
   useEffect(() => {
@@ -86,12 +86,12 @@ export default function AdminApp() {
         setBarberiaId(data.id); setUserId(user.id); setEsDueno(true); setPermitidos('todos');
         return;
       }
-      const { data: yo } = await supabase.from('barberos').select('barberia_id, es_admin, permisos, nombre, avatar_url, cola')
+      const { data: yo } = await supabase.from('barberos').select('id, barberia_id, es_admin, permisos, nombre, avatar_url, cola')
         .eq('usuario_id', user.id).eq('activo', true).maybeSingle();
       const modulos = (yo?.permisos ?? []) as string[];
       if (!yo || (!yo.es_admin && modulos.length === 0)) return location.replace('/login');
       setBarberiaId(yo.barberia_id); setUserId(user.id); setEsDueno(false);
-      setYoBarbero({ nombre: yo.nombre, avatar_url: yo.avatar_url, cola: yo.cola });
+      setYoBarbero({ id: yo.id, nombre: yo.nombre, avatar_url: yo.avatar_url, cola: yo.cola });
       setPermitidos(yo.es_admin ? 'todos' : modulos);
     });
   }, []);
@@ -293,8 +293,8 @@ export default function AdminApp() {
                 </span>
               )} />
           )}
-          {tab === 'finanzas' && <Finanzas datos={datos} recargar={recargar} />}
-          {tab === 'estadisticas' && <Estadisticas datos={datos} />}
+          {tab === 'finanzas' && <Finanzas datos={datos} recargar={recargar} miBarberoId={esDueno ? null : yoBarbero?.id ?? null} />}
+          {tab === 'estadisticas' && <Estadisticas datos={datos} miBarberoId={esDueno ? null : yoBarbero?.id ?? null} />}
           {tab === 'mijornada' && (datos.barberos.some((b) => b.usuario_id === userId)
             ? <BarberApp />
             : <ActivarPerfil onListo={recargar} />)}

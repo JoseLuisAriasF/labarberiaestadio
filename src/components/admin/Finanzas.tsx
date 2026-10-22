@@ -10,8 +10,10 @@ interface Alquiler { barbero_id: string; mes: string; monto: number; pagado_at: 
 interface Gasto { id: string; concepto: string; categoria: string; monto: number; fecha: string }
 const CATEGORIAS = ['ALQUILER', 'SERVICIOS', 'PRODUCTOS', 'SUELDOS', 'MARKETING', 'OTROS'] as const;
 
-export default function Finanzas({ datos, recargar }: { datos: DatosBarberia; recargar: () => void }) {
+export default function Finanzas({ datos, recargar, miBarberoId = null }: { datos: DatosBarberia; recargar: () => void; miBarberoId?: string | null }) {
   const { barberia, barberos } = datos;
+  // El barbero solo ve sus propios datos, en vista mensual.
+  const soloMio = !!miBarberoId;
   const [mes, setMes] = useState(hoyLima().slice(0, 7));
   const [tx, setTx] = useState<Tx[]>([]);
   const [alq, setAlq] = useState<Alquiler[]>([]);
@@ -30,7 +32,8 @@ export default function Finanzas({ datos, recargar }: { datos: DatosBarberia; re
         .eq('barberia_id', barberia.id).gte('created_at', desde.toISOString()).lt('created_at', hasta.toISOString()),
       supabase.from('alquileres').select('*').eq('barberia_id', barberia.id).eq('mes', `${mes}-01`),
     ]);
-    setTx((a.data ?? []) as Tx[]); setAlq((b.data ?? []) as Alquiler[]);
+    const txs = (a.data ?? []) as Tx[];
+    setTx(soloMio ? txs.filter((t) => t.barbero_id === miBarberoId) : txs); setAlq((b.data ?? []) as Alquiler[]);
     const g = await supabase.from('gastos').select('id, concepto, categoria, monto, fecha').eq('barberia_id', barberia.id)
       .gte('fecha', `${mes}-01`).lt('fecha', hasta.toISOString().slice(0, 10)).order('fecha', { ascending: false });
     setGastos((g.data ?? []) as Gasto[]);
@@ -71,7 +74,7 @@ export default function Finanzas({ datos, recargar }: { datos: DatosBarberia; re
 
   return (
     <div className="grid gap-6">
-      <section data-ayuda="fin-modelo" className="neu rounded-2xl p-4 grid gap-4">
+      {!soloMio && <section data-ayuda="fin-modelo" className="neu rounded-2xl p-4 grid gap-4">
         <h3 className="titulo">Modelo financiero</h3>
         <div className="grid sm:grid-cols-2 gap-3">
           {([
@@ -88,10 +91,9 @@ export default function Finanzas({ datos, recargar }: { datos: DatosBarberia; re
           ? <label className="text-sm flex items-center gap-2">Comisión por defecto para barberos <input type="number" min={0} max={100} className="campo !w-20" value={comision} onChange={(e) => setComision(+e.target.value)} />%</label>
           : <label className="text-sm flex items-center gap-2">Alquiler mensual por silla S/ <input type="number" min={0} step="10" className="campo !w-28" value={alquiler} onChange={(e) => setAlquiler(+e.target.value)} /></label>}
         <button className="btn-acento w-fit" onClick={guardar}>Guardar</button>
-      </section>
+      </section>}
       {error && <Aviso>{error}</Aviso>}
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
-
       <section data-ayuda="fin-reporte" className="grid gap-3">
         <div className="flex items-center gap-2">
           <h3 className="titulo">Reporte del mes</h3>
@@ -101,14 +103,14 @@ export default function Finanzas({ datos, recargar }: { datos: DatosBarberia; re
           <div className="neu-inset rounded-xl p-3"><p className="text-lg font-semibold">{soles(total)}</p><p className="text-[11px] text-base-500">facturado</p></div>
           <div className="neu-inset rounded-xl p-3"><p className="text-lg font-semibold">{tx.length}</p><p className="text-[11px] text-base-500">atenciones</p></div>
           <div className="neu-inset rounded-xl p-3"><p className="text-lg font-semibold">{soles(comisiones)}</p><p className="text-[11px] text-base-500">comisiones a pagar</p></div>
-          <div className="neu-inset rounded-xl p-3"><p className={`text-lg font-semibold ${netaDueno < 0 ? 'text-red-500' : 'text-emerald-500'}`}>{soles(netaDueno)}</p><p className="text-[11px] text-base-500">ganancia neta (menos gastos)</p></div>
+          {!soloMio && <div className="neu-inset rounded-xl p-3"><p className={`text-lg font-semibold ${netaDueno < 0 ? 'text-red-500' : 'text-emerald-500'}`}>{soles(netaDueno)}</p><p className="text-[11px] text-base-500">ganancia neta (menos gastos)</p></div>}
         </div>
         <div className="flex flex-wrap gap-2 text-xs">{porMetodo.map(([m, v]) => <span key={m} className="chip">{m}: {soles(v)}</span>)}</div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-xs text-base-500"><th className="py-2">Barbero</th><th>Atenciones</th><th>Facturado</th><th>{barberia.modo_financiero === 'CENTRALIZADO' ? 'Comisión' : 'Alquiler del mes'}</th></tr></thead>
             <tbody>
-              {barberos.map((b) => {
+              {barberos.filter((b) => !soloMio || b.id === miBarberoId).map((b) => {
                 const suyas = tx.filter((t) => t.barbero_id === b.id);
                 const pagado = alq.find((a) => a.barbero_id === b.id);
                 return (

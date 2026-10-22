@@ -41,8 +41,10 @@ function Barras({ titulo, filas, fmt }: { titulo: string; filas: { k: string; v:
   );
 }
 
-export default function Estadisticas({ datos }: { datos: DatosBarberia }) {
+export default function Estadisticas({ datos, miBarberoId = null }: { datos: DatosBarberia; miBarberoId?: string | null }) {
   const { barberia, barberos } = datos;
+  // El barbero solo ve sus propias citas del mes, sin gráficas por día ni por hora.
+  const soloMio = !!miBarberoId;
   const [mes, setMes] = useState(hoyLima().slice(0, 7));
   const [citas, setCitas] = useState<Cita[]>([]);
   const [error, setError] = useState('');
@@ -54,9 +56,9 @@ export default function Estadisticas({ datos }: { datos: DatosBarberia }) {
       .eq('barberia_id', barberia.id).eq('estado', 'COMPLETADA')
       .gte('fecha_hora', desde.toISOString()).lt('fecha_hora', hasta.toISOString())
       .then(({ data, error }) => {
-        if (error) setError(msg(error)); else { setError(''); setCitas((data ?? []) as unknown as Cita[]); }
+        if (error) setError(msg(error)); else { setError(''); const todas = (data ?? []) as unknown as Cita[]; setCitas(soloMio ? todas.filter((c) => c.barbero_id === miBarberoId) : todas); }
       });
-  }, [mes, barberia.id]);
+  }, [mes, barberia.id, soloMio, miBarberoId]);
 
   const ingresos = useMemo(() => citas.reduce((n, c) => n + Number(c.precio), 0), [citas]);
   const porDia = useMemo(() => {
@@ -98,11 +100,11 @@ export default function Estadisticas({ datos }: { datos: DatosBarberia }) {
         <div className="panel"><p className="text-lg font-bold">{soles(citas.length ? ingresos / citas.length : 0)}</p><p className="text-xs text-[var(--texto-suave)]">ticket promedio</p></div>
       </div>
       <div data-ayuda="est-graficos" className="grid gap-4 sm:grid-cols-2">
-        <Barras titulo="Ingresos por día (S/)" filas={porDia} fmt={(v) => soles(v).replace('S/ ', '')} />
+        {!soloMio && <Barras titulo="Ingresos por día (S/)" filas={porDia} fmt={(v) => soles(v).replace('S/ ', '')} />}
         <Barras titulo="Servicios más pedidos" filas={servicios} />
-        <Barras titulo="Horas con más cortes" filas={horas} />
-        <Barras titulo="Cortes por barbero" filas={porBarbero} />
-        <Barras titulo="Clientes más frecuentes" filas={frecuentes} />
+        {!soloMio && <Barras titulo="Horas con más cortes" filas={horas} />}
+        {!soloMio && <Barras titulo="Cortes por barbero" filas={porBarbero} />}
+        {!soloMio && <Barras titulo="Clientes más frecuentes" filas={frecuentes} />}
       </div>
     </div>
   );
