@@ -152,9 +152,11 @@ export default function AdminApp() {
 
       {/* Mobile header + overlay */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#0a0a1a]/95 backdrop-blur-sm border-b border-white/5 flex items-center px-4 gap-3">
+        {esDueno && (
         <button onClick={() => setMenuAbierto(!menuAbierto)} className="text-white p-1">
           {menuAbierto ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
+        )}
         <span className="text-sm font-semibold text-white truncate">{barberia.nombre}</span>
         {!esDueno && <a href="/barber" className="ml-2 rounded-lg border border-white/20 px-2 py-1 text-xs font-semibold text-white">← Mi jornada</a>}
         <div className="ml-auto flex items-center gap-1">
@@ -165,7 +167,7 @@ export default function AdminApp() {
           </button>
         </div>
       </div>
-      {menuAbierto && (
+      {esDueno && menuAbierto && (
         <>
           <div className="lg:hidden fixed inset-0 z-40 bg-black/60" onClick={() => setMenuAbierto(false)} />
           <aside className="lg:hidden fixed top-0 left-0 bottom-0 z-50 w-64 flex flex-col bg-gradient-to-b from-[#0a0a1a] to-[#12122a] shadow-2xl">
