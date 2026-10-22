@@ -13,6 +13,20 @@ import { BotonAccion, Hoja } from '../ui';
 import { iniciarAyudaVista } from '@/lib/guia';
 import { Aviso, Cargando } from '../ui';
 
+const MODULOS_MAS = [
+  { id: 'agenda', t: 'Citas', icono: '📅' },
+  { id: 'clientes', t: 'Clientes', icono: '🛡️' },
+  { id: 'finanzas', t: 'Finanzas', icono: '💼' },
+  { id: 'estadisticas', t: 'Estadísticas', icono: '📊' },
+  { id: 'equipo', t: 'Barberos', icono: '👥' },
+  { id: 'servicios', t: 'Servicios', icono: '✂️' },
+  { id: 'lealtad', t: 'Lealtad', icono: '🎁' },
+  { id: 'productos', t: 'Productos', icono: '📦' },
+  { id: 'pisos', t: 'Pisos 3D', icono: '🏢' },
+  { id: 'local', t: 'Local', icono: '📍' },
+  { id: 'festivos', t: 'Festivos', icono: '🎉' },
+];
+
 export default function BarberApp() {
   const [yo, setYo] = useState<Barbero | null>(null);
   const [tab, setTab] = useState<'jornada' | 'agenda' | 'perfil' | 'clientes'>('jornada');
@@ -88,9 +102,17 @@ export default function BarberApp() {
         )}
       </nav>
       <Hoja abierta={masAbierto} onClose={() => setMasAbierto(false)} titulo="Más opciones">
-        <div className="grid gap-2">
-          <button type="button" onClick={() => { setMasAbierto(false); setTab('perfil'); }} className="btn w-full justify-start">👤 Mi perfil</button>
-          <a href="/admin" className="btn-acento w-full text-center">🔑 Panel de administración (tus permisos)</a>
+        <div className="grid grid-cols-3 gap-2">
+          <button type="button" onClick={() => { setMasAbierto(false); setTab('perfil'); }}
+            className="grid min-h-24 place-items-center gap-1 rounded-2xl border border-[var(--borde)] bg-[var(--tarjeta)] p-2 text-center text-sm font-semibold">
+            <span className="text-2xl" aria-hidden="true">👤</span>Mi perfil
+          </button>
+          {MODULOS_MAS.filter((m) => vivo.es_admin || (vivo.permisos ?? []).includes(m.id)).map((m) => (
+            <a key={m.id} href={`/admin#${m.id}`}
+              className="grid min-h-24 place-items-center gap-1 rounded-2xl border border-acento-500/60 bg-acento-500/5 p-2 text-center text-sm font-semibold">
+              <span className="text-2xl" aria-hidden="true">{m.icono}</span>{m.t}
+            </a>
+          ))}
         </div>
       </Hoja>
       <Hoja abierta={nuevoCorte} onClose={() => setNuevoCorte(false)} titulo="Nuevo corte (sin cita)">
