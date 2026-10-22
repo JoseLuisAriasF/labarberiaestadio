@@ -150,6 +150,16 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
   const [guardandoNuevo, setGuardandoNuevo] = useState(false);
   const [errorNuevo, setErrorNuevo] = useState('');
   const [okNuevo, setOkNuevo] = useState('');
+  const puedeContactos = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
+  async function desdeContactos() {
+    try {
+      const nav = navigator as unknown as { contacts: { select: (p: string[], o: object) => Promise<{ name?: string[]; tel?: string[] }[]> } };
+      const [c] = await nav.contacts.select(['name', 'tel'], { multiple: false });
+      const tel = (c?.tel?.[0] ?? '').replace(/\D/g, '');
+      if (c?.name?.[0]) setNuevoNombre(c.name[0]);
+      if (tel) setNuevoCel(tel.slice(-9));
+    } catch { /* el usuario canceló */ }
+  }
   async function registrarNuevo(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrorNuevo(''); setOkNuevo(''); setGuardandoNuevo(true);
@@ -199,6 +209,7 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
         </div>
         {nuevoAbierto && (
           <form onSubmit={registrarNuevo} className="panel grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            {puedeContactos && <button type="button" onClick={desdeContactos} className="btn w-full sm:col-span-3">📇 Elegir de mis contactos</button>}
             <label className="grid gap-1"><span className="etiqueta">Nombre y apellido</span>
               <input value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} required minLength={2} maxLength={60} placeholder="Ej. Carlos Pérez" className="campo" /></label>
             <label className="grid gap-1"><span className="etiqueta">Número de celular</span>
