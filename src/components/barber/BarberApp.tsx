@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { CalendarDays, Clock, Scissors, User, Users } from 'lucide-react';
+import { CalendarDays, Clock, LayoutGrid, Scissors, User, Users } from 'lucide-react';
 import { msg, subirImagen, suscribirPush, supabase } from '@/lib/supabase';
 import { useBarberia } from '@/lib/useBarberia';
 import type { Barbero, EstadoBarbero, Horario } from '@/lib/tipos';
@@ -36,6 +36,7 @@ export default function BarberApp() {
   if (vivo.debe_cambiar_clave) return <CambiarClave onListo={() => { setYo({ ...yo, debe_cambiar_clave: false }); recargar(); }} />;
 
   const { barberia } = datos;
+  const tieneAdmin = !!vivo.es_admin || (vivo.permisos?.length ?? 0) > 0;
   async function cerrarSesion() {
     await supabase.auth.signOut();
     location.replace('/login');
@@ -52,13 +53,12 @@ export default function BarberApp() {
           <h1 className="titulo text-lg">Hola, {vivo.nombre.split(' ')[0]} ✂️</h1>
           <p className="text-xs text-base-500 truncate">{barberia.nombre} · {barberia.codigo} · cola actual: <b>{vivo.cola}</b></p>
         </div>
-        {(vivo.es_admin || (vivo.permisos?.length ?? 0) > 0) && <a href="/admin" className="btn !py-1.5 text-xs shrink-0">Panel de administración</a>}
         <button type="button" onClick={cerrarSesion} className="btn !py-1.5 text-xs shrink-0">Cerrar sesión</button>
       </header>
       <div className="flex justify-end -mb-2">
         <button type="button" onClick={() => iniciarAyudaVista(tab)} className="btn !py-1.5 text-xs">❔ Ayuda de esta sección</button>
       </div>
-      <nav aria-label="Secciones" className="neu-inset rounded-2xl p-1 grid grid-cols-5 gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
+      <nav aria-label="Secciones" style={{ gridTemplateColumns: `repeat(${tieneAdmin ? 6 : 5}, minmax(0, 1fr))` }} className="neu-inset rounded-2xl p-1 grid gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg sm:static sm:inset-auto sm:z-auto sm:shadow-none">
         {([['jornada', 'Inicio', Clock], ['agenda', 'Citas', CalendarDays]] as const).map(([id, t, I]) => (
           <button key={id} onClick={() => setTab(id)} data-guia={`tab-${id}`} aria-pressed={tab === id}
             className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
@@ -76,6 +76,11 @@ export default function BarberApp() {
             <I className="size-5" />{t}
           </button>
         ))}
+        {tieneAdmin && (
+          <a href="/admin" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)]">
+            <LayoutGrid className="size-5" />Más
+          </a>
+        )}
       </nav>
       <Hoja abierta={nuevoCorte} onClose={() => setNuevoCorte(false)} titulo="Nuevo corte (sin cita)">
         <Walkin barberiaId={vivo.barberia_id} barberos={[vivo]} servicios={datos.servicios}
