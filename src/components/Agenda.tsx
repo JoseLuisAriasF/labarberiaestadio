@@ -530,8 +530,8 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
                   </button>
                 ))}
               </div>
-              <label className="grid gap-1"><span className="etiqueta">Otro día (hasta 31 días atrás)</span>
-                <input type="date" value={diasHecho.includes(fechaHecho) ? '' : fechaHecho} min={sumarDias(hoyLima(), -31)} max={hoyLima()}
+              <label className="grid gap-1"><span className="etiqueta">Otro día</span>
+                <input type="date" value={diasHecho.includes(fechaHecho) ? '' : fechaHecho} max={hoyLima()}
                   onChange={(e) => e.target.value && setFechaHecho(e.target.value)} className="campo" /></label>
               <label><span className="etiqueta">Cómo pagó</span>
                 <select value={metodoHecho} onChange={(e) => setMetodoHecho(e.target.value as typeof metodoHecho)} className="campo">
