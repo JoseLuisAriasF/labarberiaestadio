@@ -323,6 +323,7 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   const [yaHecho, setYaHecho] = useState(false);
   const ahoraLima = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
   const [horaHecho, setHoraHecho] = useState(ahoraLima);
+  const [fechaHecho, setFechaHecho] = useState(() => hoyLima());
   const [metodoHecho, setMetodoHecho] = useState<'EFECTIVO' | 'YAPE' | 'PLIN' | 'TRANSFERENCIA'>('EFECTIVO');
   const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
   const puedeContactos = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
@@ -397,7 +398,7 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
     if (yaHecho) {
       const { error } = await supabase.rpc('registrar_corte_pasado', {
         p_barbero: barberoId, p_cliente: elegido!.id, p_servicio: servicioId || null,
-        p_inicio: new Date(`${hoyLima()}T${horaHecho}:00-05:00`).toISOString(), p_metodo: metodoHecho,
+        p_inicio: new Date(`${fechaHecho}T${horaHecho}:00-05:00`).toISOString(), p_metodo: metodoHecho,
       });
       setEnviando(false);
       if (error) setError(msg(error)); else onListo();
@@ -519,6 +520,8 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
           </button>
           {yaHecho && (
             <div className="panel grid gap-2">
+              <label><span className="etiqueta">Día en que se hizo</span>
+                <input type="date" value={fechaHecho} min={sumarDias(hoyLima(), -2)} max={hoyLima()} onChange={(e) => setFechaHecho(e.target.value)} className="campo" /></label>
               <label><span className="etiqueta">Hora en que se hizo</span>
                 <input type="time" value={horaHecho} onChange={(e) => setHoraHecho(e.target.value)} className="campo" /></label>
               <label><span className="etiqueta">Cómo pagó</span>
