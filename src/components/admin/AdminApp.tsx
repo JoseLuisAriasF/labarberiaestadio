@@ -187,12 +187,14 @@ export default function AdminApp() {
 
       {/* Navegación inferior: pulgar a la mano en celular; "Más" muestra todos tus módulos */}
       {!esDueno && (
-        <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-          <a href="/barber" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400"><Home className="size-5" />Inicio</a>
-          <a href="/barber#agenda" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400"><CalendarDays className="size-5" />Citas</a>
-          <a href="/barber#corte" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-acento-400"><Scissors className="size-5" />Corte</a>
-          <a href="/barber#clientes" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400"><Users className="size-5" />Clientes</a>
-          <button onClick={() => setMasAbierto(true)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400"><Menu className="size-5" />Más</button>
+        <nav aria-label="Secciones" className="neu-inset rounded-2xl p-1 grid grid-cols-5 gap-1 text-sm fixed inset-x-3 bottom-3 z-40 bg-[var(--superficie)] shadow-lg lg:hidden">
+          <a href="/barber" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-xs font-semibold text-[var(--texto-suave)]"><Clock className="size-5" />Inicio</a>
+          <a href="/barber#agenda" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-xs font-semibold text-[var(--texto-suave)]"><CalendarDays className="size-5" />Citas</a>
+          <a href="/barber#corte" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-xs font-bold text-acento-400">
+            <span className="-mt-5 grid size-12 place-items-center rounded-full bg-red-800 text-white shadow-lg"><Scissors className="size-6" /></span>Corte
+          </a>
+          <a href="/barber#clientes" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-xs font-semibold text-[var(--texto-suave)]"><Users className="size-5" />Clientes</a>
+          <button type="button" onClick={() => setMasAbierto(true)} className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-xs font-semibold text-[var(--texto-suave)]"><Menu className="size-5" />Más</button>
         </nav>
       )}
       {esDueno && <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
