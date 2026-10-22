@@ -156,6 +156,7 @@ export default function AdminApp() {
           {menuAbierto ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
         <span className="text-sm font-semibold text-white truncate">{barberia.nombre}</span>
+        {!esDueno && <a href="/barber" className="ml-2 rounded-lg border border-white/20 px-2 py-1 text-xs font-semibold text-white">← Mi jornada</a>}
         <div className="ml-auto flex items-center gap-1">
           <AlternarTema />
           <button type="button" onClick={() => iniciarAyudaVista(tab)} aria-label="Ayuda de esta sección"
@@ -185,7 +186,7 @@ export default function AdminApp() {
       </Hoja>
 
       {/* Navegación inferior: pulgar a la mano en celular; "Más" muestra todos tus módulos */}
-      <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+      {esDueno && <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {visibles.filter((t) => PRINCIPALES.includes(t.id)).map(({ id, t, I }) => (
           <button key={id} onClick={() => ir(id)} aria-current={tab === id ? 'page' : undefined}
             className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold ${tab === id ? 'text-acento-400' : 'text-gray-400'}`}>
@@ -195,7 +196,7 @@ export default function AdminApp() {
         <button onClick={() => setMasAbierto(true)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400">
           <Menu className="size-5" />Más
         </button>
-      </nav>
+      </nav>}
 
       {/* Content */}
       <div className="flex-1 min-w-0 lg:px-6 px-4 py-4 pb-24 lg:py-6 lg:pb-6 lg:mt-0 mt-14">
