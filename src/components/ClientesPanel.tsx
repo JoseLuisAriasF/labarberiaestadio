@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { UserPlus } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
 import { Aviso, Hoja } from './ui';
 import VerificarDni from './VerificarDni';
@@ -143,6 +144,21 @@ function DatosCliente({ clienteId, onCambio, onEliminado }: { clienteId: string;
 export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
   const [lista, setLista] = useState<Resumen[]>([]);
   const [q, setQ] = useState('');
+  const [nuevoAbierto, setNuevoAbierto] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState('');
+  const [nuevoCel, setNuevoCel] = useState('');
+  const [guardandoNuevo, setGuardandoNuevo] = useState(false);
+  const [errorNuevo, setErrorNuevo] = useState('');
+  const [okNuevo, setOkNuevo] = useState('');
+  async function registrarNuevo(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErrorNuevo(''); setOkNuevo(''); setGuardandoNuevo(true);
+    const { error } = await supabase.rpc('barbero_registrar_cliente_celular', { p_nombre: nuevoNombre.trim(), p_telefono: nuevoCel.trim() });
+    setGuardandoNuevo(false);
+    if (error) return setErrorNuevo(msg(error));
+    setOkNuevo(`Cliente ${nuevoNombre.trim()} registrado. Búscalo en Nuevo corte por su celular.`);
+    setNuevoNombre(''); setNuevoCel('');
+  }
   const [error, setError] = useState('');
   const [abierto, setAbierto] = useState<Resumen | null>(null);
   const [tarjetas, setTarjetas] = useState<Tarjeta[]>([]);
@@ -179,7 +195,19 @@ export default function ClientesPanel({ barberiaId }: { barberiaId: string }) {
         <div data-ayuda="clientes-lista" className="flex flex-wrap items-center gap-2">
           <h3 className="titulo">Clientes ({lista.length})</h3>
           <input className="campo ml-auto !w-64" placeholder="Buscar por nombre, celular o DNI" value={q} onChange={(e) => setQ(e.target.value)} />
+          <button type="button" className="btn-acento !py-2 text-sm" onClick={() => setNuevoAbierto(!nuevoAbierto)}><UserPlus className="size-4" /> Registrar cliente</button>
         </div>
+        {nuevoAbierto && (
+          <form onSubmit={registrarNuevo} className="panel grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <label className="grid gap-1"><span className="etiqueta">Nombre y apellido</span>
+              <input value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} required minLength={2} maxLength={60} placeholder="Ej. Carlos Pérez" className="campo" /></label>
+            <label className="grid gap-1"><span className="etiqueta">Número de celular</span>
+              <input value={nuevoCel} onChange={(e) => setNuevoCel(e.target.value)} required inputMode="tel" maxLength={15} placeholder="9xx xxx xxx" className="campo" /></label>
+            <button disabled={guardandoNuevo} className="btn-acento">{guardandoNuevo ? 'Guardando…' : 'Guardar cliente'}</button>
+            {errorNuevo && <Aviso>{errorNuevo}</Aviso>}
+          </form>
+        )}
+        {okNuevo && <Aviso tipo="ok">{okNuevo}</Aviso>}
         {error && <Aviso>{error}</Aviso>}
         <ul className="grid gap-2">
           {filtrada.map((c) => (
