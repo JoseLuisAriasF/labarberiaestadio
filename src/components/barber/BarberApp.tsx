@@ -29,9 +29,13 @@ const MODULOS_MAS = [
 
 export default function BarberApp() {
   const [yo, setYo] = useState<Barbero | null>(null);
-  const [tab, setTab] = useState<'jornada' | 'agenda' | 'perfil' | 'clientes'>('jornada');
+  // El enlace puede traer la sección: /barber#agenda, #clientes, #perfil o #corte (abre Nuevo corte).
+  const [tab, setTab] = useState<'jornada' | 'agenda' | 'perfil' | 'clientes'>(() => {
+    const h = location.hash.slice(1);
+    return h === 'agenda' || h === 'clientes' || h === 'perfil' ? h : 'jornada';
+  });
   const [masAbierto, setMasAbierto] = useState(false);
-  const [nuevoCorte, setNuevoCorte] = useState(false);
+  const [nuevoCorte, setNuevoCorte] = useState(() => location.hash === '#corte');
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {

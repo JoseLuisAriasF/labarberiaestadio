@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, CircleHelp, Clock, Gift, LayoutGrid, LogOut, MapPin, Menu, Moon, Package, PartyPopper, Scissors, ShieldCheck, Sun, UserCheck, Users, Wallet, X } from 'lucide-react';
+import { BarChart3, CalendarDays, CircleHelp, Clock, Gift, Home, LayoutGrid, LogOut, MapPin, Menu, Moon, Package, PartyPopper, Scissors, ShieldCheck, Sun, UserCheck, Users, Wallet, X } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
 import BarberApp from '../barber/BarberApp';
 import { iniciarAyudaVista, iniciarGuia } from '@/lib/guia';
@@ -186,6 +186,15 @@ export default function AdminApp() {
       </Hoja>
 
       {/* Navegación inferior: pulgar a la mano en celular; "Más" muestra todos tus módulos */}
+      {!esDueno && (
+        <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+          <a href="/barber" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400"><Home className="size-5" />Inicio</a>
+          <a href="/barber#agenda" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400"><CalendarDays className="size-5" />Citas</a>
+          <a href="/barber#corte" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-acento-400"><Scissors className="size-5" />Corte</a>
+          <a href="/barber#clientes" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400"><Users className="size-5" />Clientes</a>
+          <button onClick={() => setMasAbierto(true)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400"><Menu className="size-5" />Más</button>
+        </nav>
+      )}
       {esDueno && <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {visibles.filter((t) => PRINCIPALES.includes(t.id)).map(({ id, t, I }) => (
           <button key={id} onClick={() => ir(id)} aria-current={tab === id ? 'page' : undefined}
