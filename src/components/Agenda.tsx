@@ -396,10 +396,10 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
     if (!anonimo && !elegido) return setError('Busca al cliente o regístralo con su celular');
     setEnviando(true); setError('');
     if (yaHecho) {
-      const { error } = await supabase.rpc('registrar_corte_pasado', {
-        p_barbero: barberoId, p_cliente: elegido!.id, p_servicio: servicioId || null,
-        p_inicio: new Date(fechaHecho === hoyLima() ? Date.now() - 60000 : `${fechaHecho}T12:00:00-05:00`).toISOString(), p_metodo: metodoHecho,
-      });
+      const inicio = new Date(fechaHecho === hoyLima() ? Date.now() - 60000 : `${fechaHecho}T12:00:00-05:00`).toISOString();
+      const { error } = anonimo
+        ? await supabase.rpc('registrar_corte_pasado_anonimo', { p_barbero: barberoId, p_nombre: anonNombre.trim(), p_servicio: servicioId || null, p_inicio: inicio, p_metodo: metodoHecho })
+        : await supabase.rpc('registrar_corte_pasado', { p_barbero: barberoId, p_cliente: elegido!.id, p_servicio: servicioId || null, p_inicio: inicio, p_metodo: metodoHecho });
       setEnviando(false);
       if (error) setError(msg(error)); else onListo();
       return;
@@ -512,7 +512,7 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
         </div>
       )}
 
-      {!anonimo && elegido && (
+      {(anonimo || elegido) && (
         <div className="grid gap-2">
           <button type="button" aria-pressed={yaHecho} onClick={() => setYaHecho(!yaHecho)}
             className={`min-h-11 rounded-xl border px-3 text-sm font-semibold ${yaHecho ? 'border-acento-500 bg-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
