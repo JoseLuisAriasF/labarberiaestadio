@@ -238,7 +238,7 @@ export default function AdminApp() {
           </div>
         )}
         <div data-vista={tab} className="w-full grid gap-4">
-          {barberia.plan === 'TRIAL' && (pruebaOculta ? (
+          {barberia.plan === 'TRIAL' && dias <= 10 && (pruebaOculta ? (
             <button type="button" onClick={() => setTab('licencia')} className="w-fit rounded-full border border-[var(--borde)] px-3 py-1 text-xs font-semibold text-[var(--texto-suave)] hover:text-[var(--texto)]">
               🎁 Prueba: {dias > 0 ? `${dias} días` : 'terminó'} · ver licencia
             </button>
