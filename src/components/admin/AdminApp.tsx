@@ -8,7 +8,7 @@ import type { Premio, Producto, Servicio } from '@/lib/tipos';
 import { soles } from '@/lib/tipos';
 import Agenda from '../Agenda';
 import ClientesPanel from '../ClientesPanel';
-import { Aviso, Cargando } from '../ui';
+import { Aviso, Cargando, Hoja } from '../ui';
 import Crud from './Crud';
 import Equipo from './Equipo';
 import Estadisticas from './Estadisticas';
@@ -72,6 +72,7 @@ export default function AdminApp() {
   const [userId, setUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>(() => (location.hash.slice(1) as Tab) || 'agenda');
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [masAbierto, setMasAbierto] = useState(false);
   // Dueño: todo. Administrador delegado o barbero con módulos: solo lo que le dio el dueño.
   const [esDueno, setEsDueno] = useState(true);
   const [permitidos, setPermitidos] = useState<Acceso>(null);
@@ -172,7 +173,18 @@ export default function AdminApp() {
         </>
       )}
 
-      {/* Navegación inferior: pulgar a la mano en celular; "Más" abre el menú completo */}
+      <Hoja abierta={masAbierto} onClose={() => setMasAbierto(false)} titulo="Mis módulos">
+        <div className="grid grid-cols-3 gap-2">
+          {visibles.map(({ id, t, I }) => (
+            <button key={id} type="button" onClick={() => { ir(id); setMasAbierto(false); }}
+              className={`grid min-h-24 place-items-center gap-1 rounded-2xl border p-2 text-center text-sm font-semibold ${tab === id ? 'border-acento-500 bg-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
+              <I className="size-6" aria-hidden="true" />{t}
+            </button>
+          ))}
+        </div>
+      </Hoja>
+
+      {/* Navegación inferior: pulgar a la mano en celular; "Más" muestra todos tus módulos */}
       <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#0a0a1a]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {visibles.filter((t) => PRINCIPALES.includes(t.id)).map(({ id, t, I }) => (
           <button key={id} onClick={() => ir(id)} aria-current={tab === id ? 'page' : undefined}
@@ -180,7 +192,7 @@ export default function AdminApp() {
             <I className="size-5" />{t}
           </button>
         ))}
-        <button onClick={() => setMenuAbierto(true)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400">
+        <button onClick={() => setMasAbierto(true)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-gray-400">
           <Menu className="size-5" />Más
         </button>
       </nav>
