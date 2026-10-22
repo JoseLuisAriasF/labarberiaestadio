@@ -319,6 +319,11 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
   const [nuevo, setNuevo] = useState<{ nombre: string; telefono: string } | null>(null);
   const [registrando, setRegistrando] = useState(false);
   const [contacto, setContacto] = useState<{ nombre: string; telefono: string } | null>(null);
+  // Corte que ya se hizo: se registra terminado de una vez, sin pasar por cola ni silla.
+  const [yaHecho, setYaHecho] = useState(false);
+  const ahoraLima = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
+  const [horaHecho, setHoraHecho] = useState(ahoraLima);
+  const [metodoHecho, setMetodoHecho] = useState<'EFECTIVO' | 'YAPE' | 'PLIN' | 'TRANSFERENCIA'>('EFECTIVO');
   const [historial, setHistorial] = useState<{ servicio: string; fecha: string; barbero: string }[] | null>(null);
   const puedeContactos = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
 
@@ -389,6 +394,15 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
     e.preventDefault();
     if (!anonimo && !elegido) return setError('Busca al cliente o regístralo con su celular');
     setEnviando(true); setError('');
+    if (yaHecho) {
+      const { error } = await supabase.rpc('registrar_corte_pasado', {
+        p_barbero: barberoId, p_cliente: elegido!.id, p_servicio: servicioId || null,
+        p_inicio: new Date(`${hoyLima()}T${horaHecho}:00-05:00`).toISOString(), p_metodo: metodoHecho,
+      });
+      setEnviando(false);
+      if (error) setError(msg(error)); else onListo();
+      return;
+    }
     const { error } = anonimo
       ? await supabase.rpc('agregar_walkin', { p_barbero: barberoId, p_nombre: anonNombre.trim() || 'Anónimo', p_dni: null, p_servicio: servicioId || null, p_tipo: 'DNI' })
       : await supabase.rpc('agregar_walkin_cliente', { p_barbero: barberoId, p_cliente: elegido!.id, p_servicio: servicioId || null });
@@ -497,13 +511,32 @@ export function Walkin({ barberiaId, barberos, servicios, onListo }: { barberiaI
         </div>
       )}
 
+      {!anonimo && elegido && (
+        <div className="grid gap-2">
+          <button type="button" aria-pressed={yaHecho} onClick={() => setYaHecho(!yaHecho)}
+            className={`min-h-11 rounded-xl border px-3 text-sm font-semibold ${yaHecho ? 'border-acento-500 bg-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
+            {yaHecho ? '✓ Ya se hizo: se registra terminado' : 'Ya se hizo este corte (registrar después)'}
+          </button>
+          {yaHecho && (
+            <div className="panel grid gap-2">
+              <label><span className="etiqueta">Hora en que se hizo</span>
+                <input type="time" value={horaHecho} onChange={(e) => setHoraHecho(e.target.value)} className="campo" /></label>
+              <label><span className="etiqueta">Cómo pagó</span>
+                <select value={metodoHecho} onChange={(e) => setMetodoHecho(e.target.value as typeof metodoHecho)} className="campo">
+                  <option value="EFECTIVO">Efectivo</option><option value="YAPE">Yape</option><option value="PLIN">Plin</option><option value="TRANSFERENCIA">Transferencia</option>
+                </select></label>
+            </div>
+          )}
+        </div>
+      )}
+
       <label><span className="etiqueta">Barbero</span>
         <select value={barberoId} onChange={(e) => setBarberoId(e.target.value)} className="campo">{barberos.map((b) => <option key={b.id} value={b.id}>{b.nombre} {b.cola ? `(cola ${b.cola})` : ''}</option>)}</select></label>
       <label><span className="etiqueta">Servicio</span>
         <select value={servicioId} onChange={(e) => setServicioId(e.target.value)} className="campo">{ordenServicios.map((s) => <option key={s.id} value={s.id}>{conteo[s.id] ? `⭐ ${s.nombre}` : s.nombre} · {soles(s.precio_base)}{conteo[s.id] ? ` · ${conteo[s.id]} hechos` : ''}</option>)}</select></label>
       {error && <Aviso>{error}</Aviso>}
       <button disabled={enviando || barberos.length === 0 || (!anonimo && !elegido)} className="btn-acento">
-        {enviando ? 'Agregando…' : !anonimo && !elegido ? 'Elige al cliente primero' : 'Agregar a la cola de hoy'}
+        {enviando ? 'Guardando…' : !anonimo && !elegido ? 'Elige al cliente primero' : yaHecho ? 'Registrar corte hecho' : 'Agregar a la cola de hoy'}
       </button>
     </form>
   );
