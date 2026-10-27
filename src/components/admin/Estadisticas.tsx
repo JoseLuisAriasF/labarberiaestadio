@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
 import { hoyLima } from '@/lib/agenda';
+import { desplazar, diasTranscurridos, etiquetaPeriodo, rangoDe, type Periodo, type Rango } from '@/lib/periodo';
 import type { DatosBarberia } from '@/lib/useBarberia';
 import { soles } from '@/lib/tipos';
 import type { Barbero } from '@/lib/tipos';
@@ -25,7 +27,7 @@ function Barras({ titulo, filas, fmt }: { titulo: string; filas: { k: string; v:
   return (
     <div className="panel grid gap-3 content-start">
       <h4 className="text-sm font-semibold">{titulo}</h4>
-      {filas.length === 0 ? <p className="text-sm text-[var(--texto-suave)]">Sin datos este mes.</p> : (
+      {filas.length === 0 ? <p className="text-sm text-[var(--texto-suave)]">Sin datos en este periodo.</p> : (
         <ul className="grid gap-2">
           {filas.map((f) => (
             <li key={f.k} className="grid grid-cols-[6.5rem_1fr_auto] items-center gap-2 text-sm">
@@ -49,20 +51,18 @@ interface VentaP {
 interface ReposP { producto_id: string | null; cantidad: number; costo_unitario: number | null }
 interface StockP { id: string; nombre: string; stock: number; activo: boolean }
 
-const diasDelMes = (mes: string) => { const [y, m] = mes.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+const PERIODOS: [Periodo, string][] = [['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes']];
 const METODO_TXT: Record<string, string> = { EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin', TRANSFERENCIA: 'Transferencia' };
 
 /** Qué se vende, con qué ritmo, qué margen deja y cuándo se agota cada producto: para decidir qué reponer. */
-function ProductosStats({ barberiaId, mes, barberos }: { barberiaId: string; mes: string; barberos: Barbero[] }) {
+function ProductosStats({ barberiaId, rango, barberos }: { barberiaId: string; rango: Rango; barberos: Barbero[] }) {
   const [ventas, setVentas] = useState<VentaP[]>([]);
   const [repos, setRepos] = useState<ReposP[]>([]);
   const [stock, setStock] = useState<StockP[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const desde = new Date(`${mes}-01T00:00:00-05:00`);
-    const hasta = new Date(desde); hasta.setMonth(hasta.getMonth() + 1);
-    const ini = desde.toISOString(), fin = hasta.toISOString();
+    const ini = new Date(`${rango.desde}T00:00:00-05:00`).toISOString(), fin = new Date(`${rango.hasta}T00:00:00-05:00`).toISOString();
     Promise.all([
       supabase.from('ventas_productos').select('venta_id, barbero_id, producto_id, nombre_producto, cantidad, precio_unitario, metodo_pago')
         .eq('barberia_id', barberiaId).gte('created_at', ini).lt('created_at', fin),
@@ -77,10 +77,10 @@ function ProductosStats({ barberiaId, mes, barberos }: { barberiaId: string; mes
       setRepos((r.data ?? []) as ReposP[]);
       setStock((p.data ?? []) as StockP[]);
     });
-  }, [barberiaId, mes]);
+  }, [barberiaId, rango.desde, rango.hasta]);
 
-  // Mes en curso: el ritmo se calcula con los días transcurridos; un mes cerrado, con todos sus días.
-  const dias = mes === hoyLima().slice(0, 7) ? Number(hoyLima().slice(8, 10)) : diasDelMes(mes);
+  // El ritmo de venta usa solo los días ya vividos del periodo.
+  const dias = diasTranscurridos(rango);
   const unidades = ventas.reduce((n, v) => n + v.cantidad, 0);
   const facturado = ventas.reduce((n, v) => n + v.cantidad * Number(v.precio_unitario), 0);
   const cobros = new Set(ventas.map((v) => v.venta_id)).size;
@@ -145,7 +145,7 @@ function ProductosStats({ barberiaId, mes, barberos }: { barberiaId: string; mes
           {conCosto
             ? <p className="text-sm">Margen estimado: <b>{soles(margen)}</b></p>
             : <p className="text-sm text-[var(--texto-suave)]">Indica el costo al reponer para ver el margen.</p>}
-          <p className="text-xs text-[var(--texto-suave)]">Margen = precio de venta − costo de la última reposición del mes.</p>
+          <p className="text-xs text-[var(--texto-suave)]">Margen = precio de venta − costo de la última reposición del periodo.</p>
         </div>
       </div>
       <div className="panel grid gap-2">
@@ -172,22 +172,24 @@ function ProductosStats({ barberiaId, mes, barberos }: { barberiaId: string; mes
 
 export default function Estadisticas({ datos, miBarberoId = null }: { datos: DatosBarberia; miBarberoId?: string | null }) {
   const { barberia, barberos } = datos;
-  // El barbero solo ve sus propias citas del mes, sin gráficas por día ni por hora.
+  // El barbero solo ve sus propias citas del periodo, sin gráficas por día ni por hora.
   const soloMio = !!miBarberoId;
-  const [mes, setMes] = useState(hoyLima().slice(0, 7));
+  const [periodo, setPeriodo] = useState<Periodo>('mes');
+  // Fecha de referencia: cualquier día dentro del periodo elegido.
+  const [fecha, setFecha] = useState(hoyLima());
+  const rango = useMemo(() => rangoDe(periodo, fecha), [periodo, fecha]);
   const [citas, setCitas] = useState<Cita[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const desde = new Date(`${mes}-01T00:00:00-05:00`);
-    const hasta = new Date(desde); hasta.setMonth(hasta.getMonth() + 1);
     supabase.from('citas').select('fecha_hora, precio, barbero_id, nombre_walkin, servicios_cortes(nombre), clientes(nombre, dni)')
       .eq('barberia_id', barberia.id).eq('estado', 'COMPLETADA')
-      .gte('fecha_hora', desde.toISOString()).lt('fecha_hora', hasta.toISOString())
+      .gte('fecha_hora', new Date(`${rango.desde}T00:00:00-05:00`).toISOString())
+      .lt('fecha_hora', new Date(`${rango.hasta}T00:00:00-05:00`).toISOString())
       .then(({ data, error }) => {
         if (error) setError(msg(error)); else { setError(''); const todas = (data ?? []) as unknown as Cita[]; setCitas(soloMio ? todas.filter((c) => c.barbero_id === miBarberoId) : todas); }
       });
-  }, [mes, barberia.id, soloMio, miBarberoId]);
+  }, [rango.desde, rango.hasta, barberia.id, soloMio, miBarberoId]);
 
   const ingresos = useMemo(() => citas.reduce((n, c) => n + Number(c.precio), 0), [citas]);
   const porDia = useMemo(() => {
@@ -218,9 +220,29 @@ export default function Estadisticas({ datos, miBarberoId = null }: { datos: Dat
 
   return (
     <div className="grid gap-5">
-      <div className="flex items-center gap-2">
-        <h3 className="titulo">Estadísticas del mes</h3>
-        <input type="month" className="campo !w-auto ml-auto" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} />
+      <div className="grid gap-3">
+        <h3 className="titulo">Estadísticas</h3>
+        <div role="radiogroup" aria-label="Periodo" className="neu-inset grid grid-cols-3 gap-1 rounded-2xl p-1">
+          {PERIODOS.map(([v, t]) => (
+            <button key={v} type="button" role="radio" aria-checked={periodo === v} onClick={() => setPeriodo(v)}
+              className="min-h-11 rounded-xl text-sm font-semibold text-[var(--texto-suave)] transition-colors aria-checked:bg-acento-500 aria-checked:text-black">
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" aria-label="Periodo anterior" onClick={() => setFecha(desplazar(periodo, fecha, -1))} className="btn !p-2"><ChevronLeft className="size-5" /></button>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-sm font-semibold capitalize">{etiquetaPeriodo(periodo, fecha)}</p>
+            {rangoDe(periodo, hoyLima()).desde !== rango.desde && (
+              <button type="button" onClick={() => setFecha(hoyLima())} className="text-xs font-semibold text-acento-400 underline">Ir a hoy</button>
+            )}
+          </div>
+          <button type="button" aria-label="Periodo siguiente" onClick={() => setFecha(desplazar(periodo, fecha, 1))} className="btn !p-2"><ChevronRight className="size-5" /></button>
+          <input type={periodo === 'mes' ? 'month' : 'date'} aria-label="Elegir fecha" className="campo !w-auto !py-1.5 text-xs"
+            value={periodo === 'mes' ? fecha.slice(0, 7) : fecha}
+            onChange={(e) => e.target.value && setFecha(periodo === 'mes' ? `${e.target.value}-01` : e.target.value)} />
+        </div>
       </div>
       {error && <Aviso>{error}</Aviso>}
       <div data-ayuda="est-resumen" className="grid grid-cols-3 gap-2 text-center">
@@ -229,13 +251,13 @@ export default function Estadisticas({ datos, miBarberoId = null }: { datos: Dat
         <div className="panel"><p className="text-lg font-bold">{soles(citas.length ? ingresos / citas.length : 0)}</p><p className="text-xs text-[var(--texto-suave)]">ticket promedio</p></div>
       </div>
       <div data-ayuda="est-graficos" className="grid gap-4 sm:grid-cols-2">
-        {!soloMio && <Barras titulo="Ingresos por día (S/)" filas={porDia} fmt={(v) => soles(v).replace('S/ ', '')} />}
+        {!soloMio && periodo !== 'dia' && <Barras titulo="Ingresos por día (S/)" filas={porDia} fmt={(v) => soles(v).replace('S/ ', '')} />}
         <Barras titulo="Servicios más pedidos" filas={servicios} />
         {!soloMio && <Barras titulo="Horas con más cortes" filas={horas} />}
         {!soloMio && <Barras titulo="Cortes por barbero" filas={porBarbero} />}
         {!soloMio && <Barras titulo="Clientes más frecuentes" filas={frecuentes} />}
       </div>
-      {!soloMio && <ProductosStats barberiaId={barberia.id} mes={mes} barberos={barberos} />}
+      {!soloMio && <ProductosStats barberiaId={barberia.id} rango={rango} barberos={barberos} />}
     </div>
   );
 }
