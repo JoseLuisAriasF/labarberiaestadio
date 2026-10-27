@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { CalendarDays, Clock, LayoutGrid, Scissors, User, Users } from 'lucide-react';
+import { CalendarDays, Clock, LayoutGrid, Scissors, Users } from 'lucide-react';
 import { msg, subirImagen, suscribirPush, supabase } from '@/lib/supabase';
 import { useBarberia } from '@/lib/useBarberia';
 import type { Barbero, EstadoBarbero, Horario } from '@/lib/tipos';
@@ -9,6 +9,7 @@ import Agenda, { Walkin } from '../Agenda';
 import HoyYManana from './Inicio';
 import EditorHorario from '../Horario';
 import ClientesPanel from '../ClientesPanel';
+import Vender from './Vender';
 import { BotonAccion, Hoja, AlternarTema } from '../ui';
 import { iniciarAyudaVista } from '@/lib/guia';
 import { Aviso, Cargando } from '../ui';
@@ -30,9 +31,9 @@ const MODULOS_MAS = [
 export default function BarberApp() {
   const [yo, setYo] = useState<Barbero | null>(null);
   // El enlace puede traer la sección: /barber#agenda, #clientes, #perfil o #corte (abre Nuevo corte).
-  const [tab, setTab] = useState<'jornada' | 'agenda' | 'perfil' | 'clientes'>(() => {
+  const [tab, setTab] = useState<'jornada' | 'agenda' | 'perfil' | 'clientes' | 'vender'>(() => {
     const h = location.hash.slice(1);
-    return h === 'agenda' || h === 'clientes' || h === 'perfil' ? h : 'jornada';
+    return h === 'agenda' || h === 'clientes' || h === 'perfil' || h === 'vender' ? h : 'jornada';
   });
   const [masAbierto, setMasAbierto] = useState(false);
   const [menuAvatar, setMenuAvatar] = useState(false);
@@ -56,7 +57,6 @@ export default function BarberApp() {
   if (vivo.debe_cambiar_clave) return <CambiarClave onListo={() => { setYo({ ...yo, debe_cambiar_clave: false }); recargar(); }} />;
 
   const { barberia } = datos;
-  const tieneAdmin = !!vivo.es_admin || (vivo.permisos?.length ?? 0) > 0;
   async function cerrarSesion() {
     await supabase.auth.signOut();
     location.replace('/login');
@@ -106,20 +106,17 @@ export default function BarberApp() {
           className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
           <Users className="size-5" />Clientes
         </button>
-        {tieneAdmin ? (
-          <button type="button" onClick={() => setMasAbierto(true)} aria-label="Más opciones"
-            className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)]">
-            <LayoutGrid className="size-5" />Más
-          </button>
-        ) : (
-          <button onClick={() => setTab('perfil')} data-guia="tab-perfil" aria-pressed={tab === 'perfil'}
-            className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
-            <User className="size-5" />Mi perfil
-          </button>
-        )}
+        <button type="button" onClick={() => setMasAbierto(true)} aria-label="Más opciones" aria-pressed={tab === 'vender' || tab === 'perfil'}
+          className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-xs font-semibold text-[var(--texto-suave)] aria-pressed:bg-acento-500/15 aria-pressed:text-acento-400">
+          <LayoutGrid className="size-5" />Más
+        </button>
       </nav>
       <Hoja abierta={masAbierto} onClose={() => setMasAbierto(false)} titulo="Más opciones">
         <div className="grid grid-cols-3 gap-2">
+          <button type="button" onClick={() => { setMasAbierto(false); setTab('vender'); }} data-guia="tab-vender"
+            className="grid min-h-24 place-items-center gap-1 rounded-2xl border border-acento-500/60 bg-acento-500/10 p-2 text-center text-sm font-semibold">
+            <span className="text-2xl" aria-hidden="true">🛒</span>Vender productos
+          </button>
           <button type="button" onClick={() => { setMasAbierto(false); setTab('perfil'); }}
             className="grid min-h-24 place-items-center gap-1 rounded-2xl border border-[var(--borde)] bg-[var(--tarjeta)] p-2 text-center text-sm font-semibold">
             <span className="text-2xl" aria-hidden="true">👤</span>Mi perfil
@@ -149,6 +146,7 @@ export default function BarberApp() {
       )}
       {tab === 'clientes' && <ClientesPanel barberiaId={vivo.barberia_id} />}
       {tab === 'perfil' && <Perfil yo={vivo} datos={datos} recargar={recargar} />}
+      {tab === 'vender' && <Vender barberiaId={vivo.barberia_id} barberoId={vivo.id} />}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { msg, supabase } from '@/lib/supabase';
 import { hoyLima } from '@/lib/agenda';
 import type { DatosBarberia } from '@/lib/useBarberia';
 import { soles } from '@/lib/tipos';
+import type { Barbero } from '@/lib/tipos';
 import { Aviso } from '../ui';
 
 interface Cita {
@@ -38,6 +39,134 @@ function Barras({ titulo, filas, fmt }: { titulo: string; filas: { k: string; v:
         </ul>
       )}
     </div>
+  );
+}
+
+interface VentaP {
+  venta_id: string; barbero_id: string; producto_id: string | null; nombre_producto: string;
+  cantidad: number; precio_unitario: number; metodo_pago: string;
+}
+interface ReposP { producto_id: string | null; cantidad: number; costo_unitario: number | null }
+interface StockP { id: string; nombre: string; stock: number; activo: boolean }
+
+const diasDelMes = (mes: string) => { const [y, m] = mes.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+const METODO_TXT: Record<string, string> = { EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin', TRANSFERENCIA: 'Transferencia' };
+
+/** Qué se vende, con qué ritmo, qué margen deja y cuándo se agota cada producto: para decidir qué reponer. */
+function ProductosStats({ barberiaId, mes, barberos }: { barberiaId: string; mes: string; barberos: Barbero[] }) {
+  const [ventas, setVentas] = useState<VentaP[]>([]);
+  const [repos, setRepos] = useState<ReposP[]>([]);
+  const [stock, setStock] = useState<StockP[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const desde = new Date(`${mes}-01T00:00:00-05:00`);
+    const hasta = new Date(desde); hasta.setMonth(hasta.getMonth() + 1);
+    const ini = desde.toISOString(), fin = hasta.toISOString();
+    Promise.all([
+      supabase.from('ventas_productos').select('venta_id, barbero_id, producto_id, nombre_producto, cantidad, precio_unitario, metodo_pago')
+        .eq('barberia_id', barberiaId).gte('created_at', ini).lt('created_at', fin),
+      supabase.from('reposiciones_producto').select('producto_id, cantidad, costo_unitario')
+        .eq('barberia_id', barberiaId).gte('created_at', ini).lt('created_at', fin).order('created_at', { ascending: false }),
+      supabase.from('productos').select('id, nombre, stock, activo').eq('barberia_id', barberiaId),
+    ]).then(([v, r, p]) => {
+      const e = v.error ?? r.error ?? p.error;
+      if (e) return setError(msg(e));
+      setError('');
+      setVentas((v.data ?? []) as VentaP[]);
+      setRepos((r.data ?? []) as ReposP[]);
+      setStock((p.data ?? []) as StockP[]);
+    });
+  }, [barberiaId, mes]);
+
+  // Mes en curso: el ritmo se calcula con los días transcurridos; un mes cerrado, con todos sus días.
+  const dias = mes === hoyLima().slice(0, 7) ? Number(hoyLima().slice(8, 10)) : diasDelMes(mes);
+  const unidades = ventas.reduce((n, v) => n + v.cantidad, 0);
+  const facturado = ventas.reduce((n, v) => n + v.cantidad * Number(v.precio_unitario), 0);
+  const cobros = new Set(ventas.map((v) => v.venta_id)).size;
+  const repuestas = repos.reduce((n, r) => n + r.cantidad, 0);
+  const inversion = repos.reduce((n, r) => n + (r.costo_unitario != null ? r.cantidad * Number(r.costo_unitario) : 0), 0);
+
+  // Costo vigente: el de la reposición más reciente (la lista llega ordenada de nueva a vieja).
+  const costo = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of repos) if (r.producto_id && r.costo_unitario != null && !m.has(r.producto_id)) m.set(r.producto_id, Number(r.costo_unitario));
+    return m;
+  }, [repos]);
+
+  const ranking = useMemo(() => {
+    const m = new Map<string, { id: string | null; nombre: string; u: number; margen: number | null }>();
+    for (const v of ventas) {
+      const k = v.producto_id ?? `nombre:${v.nombre_producto}`;
+      const f = m.get(k) ?? { id: v.producto_id, nombre: v.nombre_producto, u: 0, margen: null };
+      const c = v.producto_id ? costo.get(v.producto_id) : undefined;
+      f.u += v.cantidad;
+      if (c !== undefined) f.margen = (f.margen ?? 0) + v.cantidad * (Number(v.precio_unitario) - c);
+      m.set(k, f);
+    }
+    return [...m.values()].sort((a, b) => b.u - a.u);
+  }, [ventas, costo]);
+  const margen = ranking.reduce((n, r) => n + (r.margen ?? 0), 0);
+  const conCosto = ranking.some((r) => r.margen !== null);
+
+  // Días de stock = stock ÷ ritmo diario. Lo que se agota antes va arriba.
+  const rotacion = useMemo(() => {
+    const vendidasPorId = new Map(ranking.filter((r) => r.id).map((r) => [r.id as string, r.u]));
+    return stock.filter((p) => p.activo).map((p) => {
+      const ritmo = (vendidasPorId.get(p.id) ?? 0) / Math.max(dias, 1);
+      return { ...p, diasStock: ritmo > 0 ? p.stock / ritmo : null };
+    }).sort((a, b) => (a.diasStock ?? 1e9) - (b.diasStock ?? 1e9));
+  }, [stock, ranking, dias]);
+
+  const porBarbero = barberos.map((b) => ({
+    k: b.nombre, v: ventas.filter((v) => v.barbero_id === b.id).reduce((n, v) => n + v.cantidad * Number(v.precio_unitario), 0),
+  })).sort((a, b) => b.v - a.v);
+  const porMetodo = useMemo(() => {
+    const porVenta = new Map(ventas.map((v) => [v.venta_id, v.metodo_pago]));
+    return [...contar([...porVenta.values()], (x) => x)].map(([k, v]) => ({ k: METODO_TXT[k] ?? k, v })).sort((a, b) => b.v - a.v);
+  }, [ventas]);
+
+  return (
+    <section className="grid gap-4">
+      <h3 className="titulo">Productos</h3>
+      {error && <Aviso>{error}</Aviso>}
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="panel"><p className="text-lg font-bold">{unidades}</p><p className="text-xs text-[var(--texto-suave)]">unidades vendidas</p></div>
+        <div className="panel"><p className="text-lg font-bold">{soles(facturado)}</p><p className="text-xs text-[var(--texto-suave)]">facturado</p></div>
+        <div className="panel"><p className="text-lg font-bold">{cobros}</p><p className="text-xs text-[var(--texto-suave)]">cobros</p></div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Barras titulo="Más vendidos (unidades)" filas={ranking.slice(0, 8).map((r) => ({ k: r.nombre, v: r.u }))} />
+        <Barras titulo="Ventas por barbero (S/)" filas={porBarbero} fmt={(v) => soles(v).replace('S/ ', '')} />
+        <Barras titulo="Cómo pagan" filas={porMetodo} />
+        <div className="panel grid gap-2 content-start">
+          <h4 className="text-sm font-semibold">Reposición y margen</h4>
+          <p className="text-sm">Repusiste <b>{repuestas}</b> unidades por <b>{soles(inversion)}</b></p>
+          {conCosto
+            ? <p className="text-sm">Margen estimado: <b>{soles(margen)}</b></p>
+            : <p className="text-sm text-[var(--texto-suave)]">Indica el costo al reponer para ver el margen.</p>}
+          <p className="text-xs text-[var(--texto-suave)]">Margen = precio de venta − costo de la última reposición del mes.</p>
+        </div>
+      </div>
+      <div className="panel grid gap-2">
+        <h4 className="text-sm font-semibold">Stock y cuándo se agota <span className="font-normal text-[var(--texto-suave)]">(ritmo de {dias} días)</span></h4>
+        {rotacion.length === 0 ? <p className="text-sm text-[var(--texto-suave)]">Sin productos publicados.</p> : (
+          <ul className="grid gap-2">
+            {rotacion.map((p) => {
+              const urgente = p.stock <= 0 || (p.diasStock !== null && p.diasStock < 7);
+              return (
+                <li key={p.id} className="grid grid-cols-[1fr_auto] items-center gap-2 text-sm">
+                  <span className="truncate">{p.nombre} <span className="text-xs text-[var(--texto-suave)]">· stock {p.stock}</span></span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${urgente ? 'bg-red-500/15 text-red-500' : 'bg-[var(--borde)]'}`}>
+                    {p.stock <= 0 ? 'Agotado' : p.diasStock === null ? 'sin ventas' : urgente ? 'Reponer ya' : `≈ ${Math.round(p.diasStock)} días`}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -106,6 +235,7 @@ export default function Estadisticas({ datos, miBarberoId = null }: { datos: Dat
         {!soloMio && <Barras titulo="Cortes por barbero" filas={porBarbero} />}
         {!soloMio && <Barras titulo="Clientes más frecuentes" filas={frecuentes} />}
       </div>
+      {!soloMio && <ProductosStats barberiaId={barberia.id} mes={mes} barberos={barberos} />}
     </div>
   );
 }

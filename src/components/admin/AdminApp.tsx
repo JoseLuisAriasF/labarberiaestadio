@@ -15,6 +15,7 @@ import Estadisticas from './Estadisticas';
 import Finanzas from './Finanzas';
 import Local from './Local';
 import Pisos from './Pisos';
+import Reposicion from './Reposicion';
 import Festivos from './Festivos';
 
 const PRINCIPALES = ['agenda', 'clientes', 'finanzas', 'equipo'];
@@ -61,6 +62,8 @@ export default function AdminApp() {
   const [esDueno, setEsDueno] = useState(true);
   const [yoBarbero, setYoBarbero] = useState<{ id: string; nombre: string; avatar_url: string | null; cola: number } | null>(null);
   const [permitidos, setPermitidos] = useState<Acceso>(null);
+  // Cada venta o reposición cambia el stock: el catálogo se vuelve a leer.
+  const [versionStock, setVersionStock] = useState(0);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -262,8 +265,8 @@ export default function AdminApp() {
           {tab === 'pisos' && <Pisos datos={datos} recargar={recargar} />}
           {tab === 'clientes' && <ClientesPanel barberiaId={barberia.id} />}
           {tab === 'lealtad' && <Lealtad datos={datos} recargar={recargar} />}
-          {tab === 'productos' && (
-            <Crud<Producto> tabla="productos" barberiaId={barberia.id} titulo="Productos a la venta"
+          {tab === 'productos' && (<>
+            <Crud<Producto> key={versionStock} tabla="productos" barberiaId={barberia.id} titulo="Productos a la venta"
               campos={[
                 { k: 'nombre', t: 'Nombre', req: true }, { k: 'categoria', t: 'Categoría (Ceras, Aceites, Champús…)' },
                 { k: 'descripcion', t: 'Descripción', tipo: 'textarea' },
@@ -277,7 +280,8 @@ export default function AdminApp() {
                   <span><b className="text-sm">{p.nombre}</b> <span className="text-xs text-base-500">· {soles(p.precio)} · stock {p.stock}</span></span>
                 </span>
               )} />
-          )}
+            <Reposicion barberiaId={barberia.id} onCambio={() => setVersionStock((v) => v + 1)} />
+          </>)}
           {tab === 'finanzas' && <Finanzas datos={datos} recargar={recargar} miBarberoId={esDueno ? null : yoBarbero?.id ?? null} />}
           {tab === 'estadisticas' && <Estadisticas datos={datos} miBarberoId={esDueno ? null : yoBarbero?.id ?? null} />}
           {tab === 'mijornada' && (datos.barberos.some((b) => b.usuario_id === userId)
