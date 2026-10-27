@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { msg, supabase } from '@/lib/supabase';
 import { hoyLima } from '@/lib/agenda';
+import { rangoDe, type Periodo } from '@/lib/periodo';
 import type { DatosBarberia } from '@/lib/useBarberia';
 import { soles } from '@/lib/tipos';
 import { Aviso } from '../ui';
+import SelectorPeriodo from './SelectorPeriodo';
 
 interface Tx { monto: number; metodo_pago: string; destino_pago: string; comision_barbero: number; barbero_id: string | null; created_at: string }
 interface Alquiler { barbero_id: string; mes: string; monto: number; pagado_at: string }
@@ -14,7 +16,11 @@ export default function Finanzas({ datos, recargar, miBarberoId = null }: { dato
   const { barberia, barberos } = datos;
   // El barbero solo ve sus propios datos, en vista mensual.
   const soloMio = !!miBarberoId;
-  const [mes, setMes] = useState(hoyLima().slice(0, 7));
+  // Día, semana o mes. El alquiler es mensual: siempre se muestra el mes del periodo elegido.
+  const [periodo, setPeriodo] = useState<Periodo>('mes');
+  const [fecha, setFecha] = useState(hoyLima());
+  const rango = useMemo(() => rangoDe(periodo, fecha), [periodo, fecha]);
+  const mes = rango.desde.slice(0, 7);
   const [tx, setTx] = useState<Tx[]>([]);
   const [alq, setAlq] = useState<Alquiler[]>([]);
   const [gastos, setGastos] = useState<Gasto[]>([]);
@@ -25,20 +31,20 @@ export default function Finanzas({ datos, recargar, miBarberoId = null }: { dato
   const [ok, setOk] = useState('');
 
   const cargar = async () => {
-    const desde = new Date(`${mes}-01T00:00:00-05:00`);
-    const hasta = new Date(desde); hasta.setMonth(hasta.getMonth() + 1);
+    const desde = new Date(`${rango.desde}T00:00:00-05:00`).toISOString();
+    const hasta = new Date(`${rango.hasta}T00:00:00-05:00`).toISOString();
     const [a, b] = await Promise.all([
       supabase.from('transacciones_pagos').select('monto, metodo_pago, destino_pago, comision_barbero, barbero_id, created_at')
-        .eq('barberia_id', barberia.id).gte('created_at', desde.toISOString()).lt('created_at', hasta.toISOString()),
+        .eq('barberia_id', barberia.id).gte('created_at', desde).lt('created_at', hasta),
       supabase.from('alquileres').select('*').eq('barberia_id', barberia.id).eq('mes', `${mes}-01`),
     ]);
     const txs = (a.data ?? []) as Tx[];
     setTx(soloMio ? txs.filter((t) => t.barbero_id === miBarberoId) : txs); setAlq((b.data ?? []) as Alquiler[]);
     const g = await supabase.from('gastos').select('id, concepto, categoria, monto, fecha').eq('barberia_id', barberia.id)
-      .gte('fecha', `${mes}-01`).lt('fecha', hasta.toISOString().slice(0, 10)).order('fecha', { ascending: false });
+      .gte('fecha', rango.desde).lt('fecha', rango.hasta).order('fecha', { ascending: false });
     setGastos((g.data ?? []) as Gasto[]);
   };
-  useEffect(() => { cargar(); }, [mes]);
+  useEffect(() => { cargar(); }, [rango.desde, rango.hasta]);
 
   async function guardar() {
     setError(''); setOk('');
@@ -63,7 +69,7 @@ export default function Finanzas({ datos, recargar, miBarberoId = null }: { dato
     setError('');
     const { error } = await supabase.from('gastos').insert({
       barberia_id: barberia.id, concepto: String(f.get('concepto')).trim(), categoria: f.get('categoria'),
-      monto: Number(f.get('monto')), fecha: `${mes}-01`,
+      monto: Number(f.get('monto')), fecha: periodo === 'mes' ? rango.desde : fecha,
     });
     if (error) setError(msg(error)); else { e.currentTarget.reset(); cargar(); }
   }
@@ -95,10 +101,11 @@ export default function Finanzas({ datos, recargar, miBarberoId = null }: { dato
       {error && <Aviso>{error}</Aviso>}
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
       <section data-ayuda="fin-reporte" className="grid gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="titulo">Reporte del mes</h3>
-          <input type="month" className="campo !w-auto ml-auto" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} />
-        </div>
+        <h3 className="titulo">Reporte</h3>
+        <SelectorPeriodo periodo={periodo} fecha={fecha} onPeriodo={setPeriodo} onFecha={setFecha} />
+        {periodo !== 'mes' && barberia.modo_financiero === 'INDIVIDUAL' && (
+          <p className="text-xs text-[var(--texto-suave)]">El alquiler se cobra por mes: aquí se muestra el de {mes}.</p>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
           <div className="neu-inset rounded-xl p-3"><p className="text-lg font-semibold">{soles(total)}</p><p className="text-[11px] text-base-500">facturado</p></div>
           <div className="neu-inset rounded-xl p-3"><p className="text-lg font-semibold">{tx.length}</p><p className="text-[11px] text-base-500">atenciones</p></div>
@@ -131,7 +138,7 @@ export default function Finanzas({ datos, recargar, miBarberoId = null }: { dato
       </section>
 
       <section data-ayuda="fin-gastos" className="grid gap-3">
-        <h3 className="titulo">Gastos del mes</h3>
+        <h3 className="titulo">Gastos</h3>
         <form onSubmit={agregarGasto} className="panel grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
           <label><span className="etiqueta">Concepto</span><input name="concepto" required minLength={2} placeholder="Luz, alquiler del local…" className="campo" /></label>
           <label><span className="etiqueta">Categoría</span>
@@ -147,7 +154,7 @@ export default function Finanzas({ datos, recargar, miBarberoId = null }: { dato
               <button className="btn !py-1 text-xs text-red-500" onClick={() => borrarGasto(g.id)}>Quitar</button>
             </li>
           ))}
-          {gastos.length === 0 && <li className="text-sm text-[var(--texto-suave)]">Sin gastos registrados este mes.</li>}
+          {gastos.length === 0 && <li className="text-sm text-[var(--texto-suave)]">Sin gastos registrados en este periodo.</li>}
         </ul>
       </section>
     </div>

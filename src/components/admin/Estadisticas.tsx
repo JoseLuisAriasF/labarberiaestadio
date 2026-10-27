@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { msg, supabase } from '@/lib/supabase';
 import { hoyLima } from '@/lib/agenda';
-import { desplazar, diasTranscurridos, etiquetaPeriodo, rangoDe, type Periodo, type Rango } from '@/lib/periodo';
+import { diasTranscurridos, rangoDe, type Periodo, type Rango } from '@/lib/periodo';
+import SelectorPeriodo from './SelectorPeriodo';
 import type { DatosBarberia } from '@/lib/useBarberia';
 import { soles } from '@/lib/tipos';
 import type { Barbero } from '@/lib/tipos';
@@ -51,7 +51,6 @@ interface VentaP {
 interface ReposP { producto_id: string | null; cantidad: number; costo_unitario: number | null }
 interface StockP { id: string; nombre: string; stock: number; activo: boolean }
 
-const PERIODOS: [Periodo, string][] = [['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes']];
 const METODO_TXT: Record<string, string> = { EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin', TRANSFERENCIA: 'Transferencia' };
 
 /** Qué se vende, con qué ritmo, qué margen deja y cuándo se agota cada producto: para decidir qué reponer. */
@@ -222,27 +221,7 @@ export default function Estadisticas({ datos, miBarberoId = null }: { datos: Dat
     <div className="grid gap-5">
       <div className="grid gap-3">
         <h3 className="titulo">Estadísticas</h3>
-        <div role="radiogroup" aria-label="Periodo" className="neu-inset grid grid-cols-3 gap-1 rounded-2xl p-1">
-          {PERIODOS.map(([v, t]) => (
-            <button key={v} type="button" role="radio" aria-checked={periodo === v} onClick={() => setPeriodo(v)}
-              className="min-h-11 rounded-xl text-sm font-semibold text-[var(--texto-suave)] transition-colors aria-checked:bg-acento-500 aria-checked:text-black">
-              {t}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
-          <button type="button" aria-label="Periodo anterior" onClick={() => setFecha(desplazar(periodo, fecha, -1))} className="btn !p-2"><ChevronLeft className="size-5" /></button>
-          <p className="text-center text-sm font-semibold leading-snug">{etiquetaPeriodo(periodo, fecha)}</p>
-          <button type="button" aria-label="Periodo siguiente" onClick={() => setFecha(desplazar(periodo, fecha, 1))} className="btn !p-2"><ChevronRight className="size-5" /></button>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          {rangoDe(periodo, hoyLima()).desde !== rango.desde
-            ? <button type="button" onClick={() => setFecha(hoyLima())} className="min-h-10 rounded-xl px-3 text-sm font-semibold text-acento-400 underline">Ir a hoy</button>
-            : <span />}
-          <input type={periodo === 'mes' ? 'month' : 'date'} aria-label="Elegir fecha" className="campo !w-auto min-h-10 !py-1.5 text-sm"
-            value={periodo === 'mes' ? fecha.slice(0, 7) : fecha}
-            onChange={(e) => e.target.value && setFecha(periodo === 'mes' ? `${e.target.value}-01` : e.target.value)} />
-        </div>
+        <SelectorPeriodo periodo={periodo} fecha={fecha} onPeriodo={setPeriodo} onFecha={setFecha} />
       </div>
       {error && <Aviso>{error}</Aviso>}
       <div data-ayuda="est-resumen" className="grid grid-cols-3 gap-2 text-center">
