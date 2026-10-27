@@ -179,6 +179,11 @@ function Estado({ yo }: { yo: Barbero }) {
     setError('');
     if ('vibrate' in navigator) navigator.vibrate(30);
     setPedido(e);
+    // Elegir un estado ya es estar en el local: si aún no marcó llegada, se marca sola.
+    if (!yo.presente) {
+      const { error: errLlegada } = await supabase.rpc('marcar_presencia', { p_barbero: yo.id, p_presente: true });
+      if (errLlegada) { setError(msg(errLlegada)); setPedido(null); return; }
+    }
     const { error } = await supabase.rpc('barbero_set_estado', { p_estado: e, p_minutos: minutos });
     if (error) { setError(msg(error)); setPedido(null); }
   }
