@@ -39,12 +39,14 @@ export function diasTranscurridos(rango: Rango, hoy = hoyLima()): number {
 const fechaCorta = (f: string) => new Date(`${f}T12:00:00-05:00`)
   .toLocaleDateString('es-PE', { timeZone: 'America/Lima', day: 'numeric', month: 'short', year: 'numeric' });
 
-/** Texto que ve el admin: "lun 27 oct 2026", "27 oct – 2 nov 2026" u "octubre 2026". */
+const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Texto que ve el admin: "Lun 27 oct 2026", "26 oct 2026 – 1 nov 2026" u "Octubre de 2026". */
 export function etiquetaPeriodo(periodo: Periodo, fecha: string): string {
   const r = rangoDe(periodo, fecha);
-  if (periodo === 'dia') return new Date(`${fecha}T12:00:00-05:00`)
-    .toLocaleDateString('es-PE', { timeZone: 'America/Lima', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  if (periodo === 'dia') return mayuscula(new Date(`${fecha}T12:00:00-05:00`)
+    .toLocaleDateString('es-PE', { timeZone: 'America/Lima', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
   if (periodo === 'semana') return `${fechaCorta(r.desde)} – ${fechaCorta(sumarDias(r.hasta, -1))}`;
-  return new Date(`${r.desde}T12:00:00-05:00`)
-    .toLocaleDateString('es-PE', { timeZone: 'America/Lima', month: 'long', year: 'numeric' });
+  return mayuscula(new Date(`${r.desde}T12:00:00-05:00`)
+    .toLocaleDateString('es-PE', { timeZone: 'America/Lima', month: 'long', year: 'numeric' }));
 }

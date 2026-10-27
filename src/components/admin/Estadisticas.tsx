@@ -230,16 +230,16 @@ export default function Estadisticas({ datos, miBarberoId = null }: { datos: Dat
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
           <button type="button" aria-label="Periodo anterior" onClick={() => setFecha(desplazar(periodo, fecha, -1))} className="btn !p-2"><ChevronLeft className="size-5" /></button>
-          <div className="min-w-0 flex-1 text-center">
-            <p className="truncate text-sm font-semibold capitalize">{etiquetaPeriodo(periodo, fecha)}</p>
-            {rangoDe(periodo, hoyLima()).desde !== rango.desde && (
-              <button type="button" onClick={() => setFecha(hoyLima())} className="text-xs font-semibold text-acento-400 underline">Ir a hoy</button>
-            )}
-          </div>
+          <p className="text-center text-sm font-semibold leading-snug">{etiquetaPeriodo(periodo, fecha)}</p>
           <button type="button" aria-label="Periodo siguiente" onClick={() => setFecha(desplazar(periodo, fecha, 1))} className="btn !p-2"><ChevronRight className="size-5" /></button>
-          <input type={periodo === 'mes' ? 'month' : 'date'} aria-label="Elegir fecha" className="campo !w-auto !py-1.5 text-xs"
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          {rangoDe(periodo, hoyLima()).desde !== rango.desde
+            ? <button type="button" onClick={() => setFecha(hoyLima())} className="min-h-10 rounded-xl px-3 text-sm font-semibold text-acento-400 underline">Ir a hoy</button>
+            : <span />}
+          <input type={periodo === 'mes' ? 'month' : 'date'} aria-label="Elegir fecha" className="campo !w-auto min-h-10 !py-1.5 text-sm"
             value={periodo === 'mes' ? fecha.slice(0, 7) : fecha}
             onChange={(e) => e.target.value && setFecha(periodo === 'mes' ? `${e.target.value}-01` : e.target.value)} />
         </div>
