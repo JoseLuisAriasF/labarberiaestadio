@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarCheck, CheckCircle2, Clock, MessageCircle, Upload } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, ChevronRight, Clock, MessageCircle, Smartphone, Upload, UserRound } from 'lucide-react';
 import { msg, notificar, subirImagen, supabase } from '@/lib/supabase';
 import { bloquesDelDia, hoyLima, isoDow, sumarDias, type Bloque } from '@/lib/agenda';
 import { entrarConGoogle, useSesion } from '@/lib/useSesion';
@@ -7,6 +7,7 @@ import type { Barbero } from '@/lib/tipos';
 import { DIAS, soles } from '@/lib/tipos';
 import type { DatosBarberia } from '@/lib/useBarberia';
 import { Aviso, BotonGoogle, Cargando, Esqueleto, Girando, Insignia } from './ui';
+import { GuiaReserva, VerGuia, type EstadoGuia } from './GuiaReserva';
 
 const BORRADOR = 'be:reserva';
 interface Voucher { id: string; codigo: string; tipo_premio: string; valor_descuento: number; barbero_id: string | null }
@@ -29,7 +30,9 @@ function mensajeWhatsApp(p: { barbero: Barbero; nombre: string; dni?: string; se
   return `Hola ${p.barbero.nombre}, soy ${quien}. Reservé *${p.servicio}* (${soles(p.precio)}) ${cuando}. ${cierre}`;
 }
 
-export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarberia; barbero: Barbero; onListo: () => void }) {
+export default function Reserva({ datos, barbero, onListo, guia, setGuia }: {
+  datos: DatosBarberia; barbero: Barbero; onListo: () => void; guia: EstadoGuia; setGuia: (g: EstadoGuia) => void;
+}) {
   const { barberia } = datos;
   const { user, cliente, setCliente, cargando } = useSesion();
   const borrador = useMemo(() => { const b = leerBorrador(); return b?.barberoId === barbero.id ? b : null; }, [barbero.id]);
@@ -38,6 +41,8 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   const servicios = datos.servicios.filter((s) => delBarbero.length === 0 || delBarbero.includes(s.id));
   const [servicioId, setServicioId] = useState(borrador?.servicioId || servicios[0]?.id || '');
   const servicio = servicios.find((s) => s.id === servicioId);
+  // La guía da por elegido el corte si ya venía marcado, si hay uno solo o si tocó un día.
+  const [eligioCorte, setEligioCorte] = useState(!!borrador?.servicioId || servicios.length === 1);
 
   const dias = useMemo(() => Array.from({ length: 14 }, (_, i) => sumarDias(hoyLima(), i)), []);
   const [fecha, setFecha] = useState(borrador?.fecha || dias.find((d) => barbero.horario_atencion[String(isoDow(d))]) || dias[0]);
@@ -70,6 +75,7 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   }, [fecha, servicio?.id, barbero.id]);
 
   // Al elegir hora, el paso 3 sube solo: no hay que buscar el botón de confirmar.
+  const paso2 = useRef<HTMLElement>(null);
   const paso3 = useRef<HTMLElement>(null);
   useEffect(() => {
     if (hora) requestAnimationFrame(() => paso3.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
@@ -83,9 +89,19 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   }, [cliente?.id]);
 
   if (servicios.length === 0) return <Aviso tipo="info">Este barbero aún no tiene servicios publicados.</Aviso>;
+  const verGuia = guia === 'si';
+  const bloqueGuia = (paso: number, texto: string, listo?: boolean) => (
+    <div className="sticky -top-5 z-10 -mx-1 -mt-1 bg-[var(--tarjeta)] pt-1 pb-1">
+      {verGuia ? <GuiaReserva paso={paso} texto={texto} listo={listo} onOcultar={() => setGuia('oculta')} />
+        : <VerGuia onClick={() => setGuia('si')} />}
+    </div>
+  );
   if (hecho) return (
+    <div className="grid gap-4">
+    {bloqueGuia(5, barbero.whatsapp ? 'Toca el botón verde para avisarle por WhatsApp. Tu cita también queda en «Ver mis citas».' : 'Tu cita queda guardada en «Ver mis citas».', true)}
     <Listo barbero={barbero} nombre={cliente?.nombre ?? nombreAnon.trim()} dni={cliente?.dni ?? undefined} servicio={servicio!.nombre} precio={hecho.precio} fecha={fecha} hora={hora!}
       duracion={servicio!.duracion_min} resultado={hecho.resultado} onListo={onListo} />
+    </div>
   );
 
   const verificado = cliente?.estado_verificacion === 'VERIFIED_100';
@@ -98,6 +114,25 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
   // Sin cuenta: siempre CONOCIDO (el barbero confirma por WhatsApp; adelanto se gestiona por WhatsApp fuera del sistema).
   const sinAdelanto = sinCuenta ? true : (!verificado && !anonimo && modo === 'CONOCIDO');
   const pideAdelanto = sinCuenta ? false : (anonimo || (!verificado && modo === 'ADELANTO'));
+  // Qué falta para poder confirmar: lo usa el botón y la guía.
+  const falta = (sinCuenta || anonimo) && nombreAnon.trim().length < 2 ? 'escribe tu nombre'
+    : sinCuenta && celularAnon.replace(/\D/g, '').length < 6 ? 'escribe tu celular'
+    : pideAdelanto && !archivo ? 'sube la captura de tu pago' : '';
+
+  const eligiendoCuenta = !user && !sinCuenta;
+  const etapa = !hora ? (eligioCorte ? 3 : 2)
+    : cargando || eligiendoCuenta || (user && !cliente && !anonimo) || falta === 'escribe tu nombre' || falta === 'escribe tu celular' ? 4 : 5;
+  const textoGuia = etapa === 2 ? 'Toca el corte que quieres. Verás el precio y cuánto demora.'
+    : etapa === 3 ? (cerradoHoy || bloques?.every((b) => !b.libre)
+      ? 'Ese día no hay horas libres. Toca otro día en la fila de fechas (puedes deslizarla).'
+      : 'Toca un día y luego una hora. Las horas tachadas ya están ocupadas.')
+    : cargando || (user && !cliente && !anonimo) ? 'Un momento, estamos cargando tu cuenta…'
+    : eligiendoCuenta ? 'Elige una de las 3 opciones de abajo. Si es tu primera vez, la más fácil es «Crear cuenta con mi celular».'
+    : sinCuenta && falta ? 'Escribe tu nombre y tu celular. El barbero te confirmará la cita por WhatsApp.'
+    : falta === 'escribe tu nombre' ? 'Escribe tu nombre para que el barbero te reconozca.'
+    : falta ? `Paga ${soles(precio)} por ${metodo === 'YAPE' ? 'Yape' : 'Plin'} al número que ves. Luego toca «Subir captura del pago» y elige la foto del pago.`
+    : 'Revisa el resumen y toca el botón dorado de abajo para terminar.';
+  const foco = (n: number) => (verGuia && etapa === n ? 'guia-foco' : '');
 
   async function confirmar() {
     if (!servicio || !hora) return;
@@ -146,14 +181,18 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
 
   return (
     <div className="grid gap-6">
-      <section className="grid gap-3">
+      {bloqueGuia(etapa, textoGuia)}
+      <section className={`grid gap-3 ${foco(2)}`}>
         <h3 className="paso"><span>1</span> Elige tu corte</h3>
         <div className="grid gap-2">
           {servicios.map((s) => {
             const best = datos.barberoServicios.some((x) => x.barbero_id === barbero.id && x.servicio_id === s.id && x.es_bestseller);
             const activo = s.id === servicioId;
             return (
-              <button key={s.id} onClick={() => { setServicioId(s.id); setHora(undefined); }} aria-pressed={activo}
+              <button key={s.id} onClick={() => {
+                setServicioId(s.id); setHora(undefined); setEligioCorte(true);
+                requestAnimationFrame(() => paso2.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+              }} aria-pressed={activo}
                 className={`opcion ${activo ? 'opcion-activa' : ''}`}>
                 <span className="flex-1 text-left min-w-0">
                   <span className="block font-semibold">{s.nombre} {best && <span className="chip text-amber-400 ml-1">⭐ Más pedido</span>}</span>
@@ -166,14 +205,14 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
         </div>
       </section>
 
-      <section className="grid gap-3">
+      <section ref={paso2} className={`grid gap-3 scroll-mt-40 ${foco(3)}`}>
         <h3 className="paso"><span>2</span> Elige día y hora</h3>
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x scrollbar-none">
           {dias.map((d) => {
             const cerrado = !barbero.horario_atencion[String(isoDow(d))];
             const activo = d === fecha;
             return (
-              <button key={d} onClick={() => { setFecha(d); setHora(undefined); }} aria-pressed={activo} disabled={cerrado}
+              <button key={d} onClick={() => { setFecha(d); setHora(undefined); setEligioCorte(true); }} aria-pressed={activo} disabled={cerrado}
                 className={`snap-start shrink-0 w-[4.25rem] rounded-xl py-2.5 text-center border transition-colors disabled:opacity-35 ${activo ? 'bg-acento-500 border-acento-500 text-black' : 'border-[var(--borde)] bg-[var(--tarjeta)]'}`}>
                 <span className="block text-[11px] uppercase opacity-80">{d === dias[0] ? 'Hoy' : DIAS[isoDow(d)].slice(0, 3)}</span>
                 <span className="block text-lg font-bold">{d.slice(8)}</span>
@@ -198,17 +237,12 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
       </section>
 
       {hora && servicio && (
-        <section ref={paso3} className="grid gap-3 scroll-mt-4">
+        <section ref={paso3} className={`grid gap-3 scroll-mt-40 ${foco(4) || foco(5)}`}>
           <h3 className="paso"><span>3</span> Confirma tus datos</h3>
           {cargando ? <Cargando /> : !user && !sinCuenta ? (
-            <>
-              <p className="text-sm text-base-400">Guarda tu cita y suma cortes a tu tarjeta de lealtad iniciando sesión, o reserva solo con tu nombre y celular.</p>
-              <BotonGoogle onClick={() => { guardarBorrador({ barberoId: barbero.id, servicioId, fecha, hora }); entrarConGoogle(); }} />
-              <a href="/acceso" className="btn w-full text-center">Entrar con celular y clave</a>
-              <button type="button" onClick={() => setSinCuenta(true)} className="text-sm text-base-400 underline underline-offset-4 py-1">
-                Prefiero reservar solo con mi nombre y celular
-              </button>
-            </>
+            <OpcionesCuenta
+              guardar={() => guardarBorrador({ barberoId: barbero.id, servicioId, fecha, hora })}
+              onSinCuenta={() => setSinCuenta(true)} />
           ) : user && !cliente && !anonimo ? (
             <Aviso tipo="info">Cargando tu cuenta… Si no aparece, recarga la página.</Aviso>
           ) : (
@@ -313,25 +347,48 @@ export default function Reserva({ datos, barbero, onListo }: { datos: DatosBarbe
                 <b className="text-lg tabular-nums">{soles(precio)}</b>
               </div>
               {error && <Aviso>{error}</Aviso>}
-              {(() => {
-                // Muestra qué falta en vez de un botón gris sin explicación.
-                const falta = (sinCuenta || anonimo) && nombreAnon.trim().length < 2 ? 'escribe tu nombre'
-                  : sinCuenta && celularAnon.replace(/\D/g, '').length < 6 ? 'escribe tu celular'
-                  : pideAdelanto && !archivo ? 'sube la captura de tu pago' : '';
-                return (
-                  <>
-                    <button onClick={confirmar} disabled={enviando || !!falta} aria-busy={enviando} className="btn-primario w-full py-3.5">
-                      {enviando ? <Girando className="size-5" /> : <CalendarCheck className="size-5" />}
-                      {enviando ? 'Reservando…' : verificado || sinAdelanto ? 'Confirmar cita' : 'Enviar comprobante y reservar'}
-                    </button>
-                    {falta && !enviando && <p className="text-center text-xs text-[var(--texto-suave)]">Falta: {falta}</p>}
-                  </>
-                );
-              })()}
+              <button onClick={confirmar} disabled={enviando || !!falta} aria-busy={enviando} className="btn-primario w-full py-3.5">
+                {enviando ? <Girando className="size-5" /> : <CalendarCheck className="size-5" />}
+                {enviando ? 'Reservando…' : verificado || sinAdelanto ? 'Confirmar cita' : 'Enviar comprobante y reservar'}
+              </button>
+              {/* Muestra qué falta en vez de un botón gris sin explicación. */}
+              {falta && !enviando && <p className="text-center text-xs text-[var(--texto-suave)]">Falta: {falta}</p>}
             </>
           )}
         </section>
       )}
+    </div>
+  );
+}
+
+/** Las 3 formas de seguir sin sesión: tarjetas grandes con icono y una línea, para que se entiendan solas. */
+function OpcionesCuenta({ guardar, onSinCuenta }: { guardar: () => void; onSinCuenta: () => void }) {
+  // Al volver de /acceso, Inicio abre la reserva guardada en el borrador.
+  const acceso = (modo: 'crear' | 'entrar') => `/acceso?modo=${modo}&volver=${encodeURIComponent(location.pathname + location.search)}`;
+  return (
+    <div className="grid gap-3">
+      <p className="text-base font-semibold">¿Cómo quieres continuar?</p>
+      <a href={acceso('crear')} onClick={guardar} className="opcion opcion-activa !p-4">
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-acento-400 text-black"><Smartphone className="size-6" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2 font-bold">Crear cuenta con mi celular <span className="chip">Recomendado</span></span>
+          <span className="mt-0.5 block text-sm text-[var(--texto-suave)]">Es gratis. Guardas tus citas y sumas cortes a tu tarjeta de premios.</span>
+        </span>
+        <ChevronRight className="size-5 shrink-0 text-acento-400" />
+      </a>
+      <a href={acceso('entrar')} onClick={guardar} className="-mt-1 text-center text-sm text-[var(--texto-suave)] py-1">
+        ¿Ya tienes cuenta con celular? <b className="text-acento-400 underline underline-offset-4">Entrar</b>
+      </a>
+      <div className="flex items-center gap-2 text-xs text-[var(--texto-suave)]"><span className="flex-1 border-t border-[var(--borde)]" />o también<span className="flex-1 border-t border-[var(--borde)]" /></div>
+      <BotonGoogle onClick={() => { guardar(); entrarConGoogle(); }} texto="Entrar con Google" />
+      <button type="button" onClick={onSinCuenta} className="opcion">
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[var(--superficie)]"><UserRound className="size-6" /></span>
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block font-bold">Reservar sin cuenta</span>
+          <span className="mt-0.5 block text-sm text-[var(--texto-suave)]">Solo tu nombre y celular. No sumas premios.</span>
+        </span>
+        <ChevronRight className="size-5 shrink-0 text-[var(--texto-suave)]" />
+      </button>
     </div>
   );
 }

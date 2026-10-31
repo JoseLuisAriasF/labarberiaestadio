@@ -1,16 +1,9 @@
 // Guía interactiva (driver.js, como en Papichulo). Cada paso apunta a un elemento con data-guia.
 import { AYUDA, EL_AYUDA } from './ayuda';
-type Rol = 'cliente' | 'admin' | 'barbero';
+type Rol = 'admin' | 'barbero';
 type Paso = { el: string; titulo: string; texto: string };
 
 const TOURS: Record<Rol, Paso[]> = {
-  cliente: [
-    { el: '[data-guia="reservar"]', titulo: 'Reserva en 3 pasos', texto: 'Elige tu corte, el día y la hora. Solo verás horas libres.' },
-    { el: '[data-guia="pasos"]', titulo: 'Cómo funciona', texto: 'Primera vez: pagas por Yape o Plin y tu cita queda confirmada. Si el barbero ya te conoce, puede confirmarla sin pago.' },
-    { el: '[data-guia="barberos"]', titulo: 'Tu barbero', texto: 'Mira quién está en el local, si está libre o cortando, y cuánta cola hay.' },
-    { el: '[data-guia="vista"]', titulo: 'Lista o mapa 3D', texto: 'Cambia entre la lista y el mapa del local en vivo.' },
-    { el: '[data-guia="perfil"]', titulo: 'Tu perfil', texto: 'Aquí ves tus citas, tu cartilla de premios y tus cortes anteriores.' },
-  ],
   admin: [
     { el: '[data-guia="tab-agenda"]', titulo: 'Citas', texto: 'Aquí llegan las reservas y los pagos por validar.' },
     { el: '[data-guia="tab-equipo"]', titulo: 'Barberos', texto: 'Agrega barberos y su usuario y clave. Solo tú asignas permisos: un administrador de confianza o módulos sueltos.' },

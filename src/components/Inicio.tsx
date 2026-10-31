@@ -10,7 +10,7 @@ import { temaActivo } from '@/lib/festivo';
 import EfectoFestivo from './EfectoFestivo';
 import Reserva, { guardarBorrador, leerBorrador } from './Reserva';
 import { Aviso, Cargando, Esqueleto, Hoja } from './ui';
-import { iniciarGuia } from '@/lib/guia';
+import { GuiaReserva, type EstadoGuia } from './GuiaReserva';
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' });
 
@@ -38,6 +38,9 @@ export default function Inicio() {
   const [buscaCorte, setBuscaCorte] = useState('');
   const [corteId, setCorteId] = useState<string | null>(null);
   const [vista, setVista] = useState<Vista>('lista');
+  const [guia, setGuia] = useState<EstadoGuia>('no');
+  // Abrir un barbero también enciende la guía, salvo que el cliente la haya ocultado.
+  useEffect(() => { if (fichaId) setGuia((g) => (g === 'no' ? 'si' : g)); }, [fichaId]);
 
   useEffect(() => {
     const b = leerBorrador();
@@ -81,7 +84,7 @@ export default function Inicio() {
   const festivo = temaActivo(barberia.tema_festivo);
 
   return (
-    <div className="grid gap-8 pb-10">
+    <div className={`grid gap-8 ${guia === 'si' ? 'pb-48 sm:pb-10' : 'pb-10'}`}>
       <EfectoFestivo tema={festivo} />
       <section className="grid gap-5 sm:grid-cols-[1fr_auto] sm:items-end">
         <div className="grid gap-3">
@@ -102,10 +105,10 @@ export default function Inicio() {
             Reserva tu corte en segundos. Mira qué barbero está libre y llega cuando te toque.
           </p>
           <div className="flex flex-wrap gap-3 pt-1">
-            <a href="#barberos" className="btn-primario" data-guia="reservar">
+            <a href="#barberos" onClick={() => setGuia('si')} className="btn-primario" data-guia="reservar">
               <CalendarCheck className="size-5" /> Reservar ahora
             </a>
-            <button type="button" onClick={() => iniciarGuia('cliente')} className="btn min-h-12 px-4">¿Cómo reservo?</button>
+            <a href="#barberos" onClick={() => setGuia('si')} className="btn min-h-12 px-4">¿Cómo reservo?</a>
           </div>
         </div>
         <div className="flex gap-2 sm:flex-col">
@@ -222,7 +225,7 @@ export default function Inicio() {
         )}
 
         {vista === 'lista' && (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${guia === 'si' ? 'guia-foco' : ''}`}>
             {activos.map((b) => {
               const e = ESTADOS[b.estado];
               return (
@@ -252,14 +255,28 @@ export default function Inicio() {
         )}
       </section>
 
-      <a href="#barberos" className="btn-primario fixed inset-x-4 z-40 shadow-lg sm:hidden" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-        <CalendarCheck className="size-5" /> Reservar ahora
-      </a>
+      {guia === 'si' ? (
+        !ficha && (
+          <GuiaReserva paso={1} onOcultar={() => setGuia('oculta')}
+            texto={vista === 'mapa' ? 'Toca una silla del mapa para ver a ese barbero.' : 'Toca a un barbero de la lista. 🟢 significa que está libre ahora.'}
+            className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[22rem]" />
+        )
+      ) : (
+        <a href="#barberos" onClick={() => setGuia('si')} className="btn-primario fixed inset-x-4 z-40 shadow-lg sm:hidden" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <CalendarCheck className="size-5" /> Reservar ahora
+        </a>
+      )}
 
       <Hoja abierta={!!ficha} onClose={() => { setFichaId(null); setReservando(false); }} titulo={reservando ? `Reservar con ${ficha?.nombre}` : 'Barbero'}>
         {ficha && (reservando
-          ? <Reserva datos={datos} barbero={ficha} onListo={() => { setReservando(false); setFichaId(null); }} />
-          : <Ficha b={ficha} datos={datos} disp={disp[ficha.id]} onReservar={() => setReservando(true)} />)}
+          ? <Reserva datos={datos} barbero={ficha} guia={guia} setGuia={setGuia} onListo={() => { setReservando(false); setFichaId(null); setGuia('no'); }} />
+          : (
+            <div className="grid gap-5">
+              {guia === 'si' && <GuiaReserva paso={1} onOcultar={() => setGuia('oculta')}
+                texto={`Aquí ves si ${ficha.nombre.split(' ')[0]} está libre. Si te gusta, toca el botón dorado «Reservar» de abajo.`} />}
+              <Ficha b={ficha} datos={datos} disp={disp[ficha.id]} foco={guia === 'si'} onReservar={() => setReservando(true)} />
+            </div>
+          ))}
       </Hoja>
     </div>
   );
@@ -308,7 +325,7 @@ function VisorFoto({ src, alt, onClose }: { src: string; alt: string; onClose: (
   );
 }
 
-function Ficha({ b, datos, disp, onReservar }: { b: Barbero; datos: NonNullable<ReturnType<typeof useBarberia>['datos']>; disp?: Disp; onReservar: () => void }) {
+function Ficha({ b, datos, disp, foco, onReservar }: { b: Barbero; datos: NonNullable<ReturnType<typeof useBarberia>['datos']>; disp?: Disp; foco?: boolean; onReservar: () => void }) {
   const e = ESTADOS[b.estado];
   const [verFoto, setVerFoto] = useState(false);
   const best = datos.barberoServicios.filter((x) => x.barbero_id === b.id && x.es_bestseller)
@@ -367,7 +384,7 @@ function Ficha({ b, datos, disp, onReservar }: { b: Barbero; datos: NonNullable<
           </div>
         </div>
       )}
-      <button onClick={onReservar} className="btn-primario w-full">
+      <button onClick={onReservar} className={`btn-primario w-full ${foco ? 'guia-foco' : ''}`}>
         <CalendarCheck className="size-5" /> Reservar con {b.nombre.split(' ')[0]}
       </button>
     </div>

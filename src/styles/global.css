@@ -153,6 +153,17 @@
 .guia-tour .driver-popover-prev-btn, .guia-tour .driver-popover-close-btn { background: var(--superficie); color: var(--texto); border-radius: 10px; }
 .driver-active-element { box-shadow: 0 0 0 3px theme(colors.acento.400) !important; border-radius: 14px !important; }
 
+/* Guía de reserva (GuiaReserva.tsx): tarjeta fija y resalte de lo que hay que tocar ahora. */
+.guia-reserva {
+  background: var(--tarjeta); color: var(--texto); border: 1px solid color-mix(in oklab, theme(colors.acento.400) 45%, transparent);
+  border-radius: 1.25rem; padding: 0.875rem 1rem 1rem; box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.45);
+}
+.guia-foco { outline: 2px solid theme(colors.acento.400); outline-offset: 6px; border-radius: 1rem; animation: guia-pulso 2s ease-out infinite; }
+@keyframes guia-pulso {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, theme(colors.acento.400) 40%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 12px transparent; }
+}
+
 .leaflet-container { font: inherit; background: var(--superficie); }
 
 /* Efecto festivo: lluvia de emojis sobre la portada (ver EfectoFestivo.tsx). */
